@@ -7,6 +7,69 @@
 
 ---
 
+## BUILD PROGRESS (Updated Feb 8, 2026)
+
+### COMPLETED
+- [x] **Phase 1.1** - Environment setup, npm init, dependencies installed
+- [x] **Phase 1.2** - Telegram bot created: @Swarmv1bot (token configured)
+- [x] **Phase 1.3** - Stacks wallets generated (5 wallets - main + 4 specialist bots)
+- [x] **Phase 1.4** - Project structure created (src/bots, src/contracts, src/services, src/utils, src/database)
+- [x] **Phase 2.2** - Stacks utilities (stacksUtils.js) - micro-STX conversion, escrow lock/release, tx status
+- [x] **Phase 2.3** - Escrow smart contract written (escrow.clar) - lock, release, refund, get-status
+- [x] **Phase 2.4** - Escrow contract DEPLOYED to testnet (TX: 36027632df0bce70d6289caf325167a743b94130a3e7fc0e5067283400ec53fd)
+- [x] **Phase 3.1** - In-memory database (db.js) - bot registry, task history, leaderboard, escrow tracking
+- [x] **Phase 4.1** - Bot registry (botRegistry.js) - register, find by capability, get best bot, execute task
+- [x] **Phase 4.2** - All 4 specialist bots implemented and tested:
+  - [x] Price Oracle Bot (CoinGecko API) - 0.01 STX/call
+  - [x] Weather Oracle Bot (wttr.in API) - 0.005 STX/call
+  - [x] Translation Bot (MyMemory API) - 0.008 STX/call
+  - [x] Calculator Bot (safe eval) - 0.001 STX/call
+- [x] **Phase 5.1** - Main orchestrator bot (mainBot.js) - query parsing, task routing, escrow integration
+- [x] **Phase 6.1** - Main entry point (index.js) - env validation, bot initialization
+- [x] **Phase 6.2** - Specialist bot wallets created and funded
+- [x] **Phase 6.3** - Integration testing - all 4 bots working end-to-end
+
+### BUGS FIXED DURING BUILD
+- [x] StacksTestnet constructor changed to STACKS_TESTNET constant (v7 API change)
+- [x] Telegram markdown parsing errors - removed Markdown parse_mode, using plain text
+- [x] uintCV type error - changed BN to Math.floor for micro-STX conversion
+- [x] broadcastTransaction API - changed to object format { transaction, network }
+- [x] Price regex captured filler words ("the", "me") - rewrote with filler word filtering
+- [x] Translation regex required quotes - made quotes optional
+- [x] LibreTranslate API down - switched to MyMemory API
+- [x] Execution flow restructured - tasks execute first, blockchain payments in background
+
+### VERIFIED WORKING
+- [x] /start command - welcome message
+- [x] /bots command - lists all 4 specialist bots
+- [x] /leaderboard command - shows bot earnings
+- [x] Price queries: "What's the price of Bitcoin?" -> fetches real price from CoinGecko
+- [x] Weather queries: "Weather in Paris?" -> fetches real weather from wttr.in
+- [x] Translation queries: "Translate hello to spanish" -> translates via MyMemory
+- [x] Calculator queries: "Calculate 15 * 23 + 7" -> computes result
+- [x] Multi-bot queries: "Price of bitcoin and weather in London" -> hires 2 bots
+- [x] Escrow locking and releasing on Stacks testnet
+- [x] Leaderboard updates after each successful task
+
+### DEPLOYMENT INFO
+- **Telegram Bot:** @Swarmv1bot (https://t.me/Swarmv1bot)
+- **Main Wallet:** ST2Q9TEZVYPTJ1Q2H5H2G9QREV21KS90YQ0SZH113 (500 STX funded)
+- **Contract:** ST2Q9TEZVYPTJ1Q2H5H2G9QREV21KS90YQ0SZH113.swarm-escrow
+- **Price Bot Wallet:** ST1WCTD9NEVYC5W5YXFZ623782F9G0DPHHGP3N5XF
+- **Weather Bot Wallet:** ST3R1Y8VMTM4V8HDWKTH18Z68FG1M1V958KBCPG41
+- **Translation Bot Wallet:** ST3RWP30KD2QFHD4FDTMXG44EPAVD38082QYS76T1
+- **Calculator Bot Wallet:** ST3P1EXKVP0GEMVFK51WGFW8MSDVXGP07B6EZCGXX
+
+### REMAINING
+- [ ] **Phase 7** - Error handling & edge cases (errorHandler.js, timeout protection)
+- [ ] **Phase 8** - Leaderboard enhancement (ASCII bar charts, total volume)
+- [ ] **Phase 9** - Demo video preparation (30-60 sec recording)
+- [ ] **Phase 10** - README finalization
+- [ ] **Phase 11** - Final testing checklist
+- [ ] **Phase 12** - DoraHacks submission
+
+---
+
 ## PROJECT OVERVIEW
 
 **What we're building:**
