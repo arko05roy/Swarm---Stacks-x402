@@ -31,7 +31,7 @@ class StacksUtils {
   async sendToEscrow(amount, taskId, recipientAddress) {
     const txOptions = {
       contractAddress: process.env.ESCROW_CONTRACT_ADDRESS,
-      contractName: 'swarm-escrow',
+      contractName: process.env.ESCROW_CONTRACT_NAME || 'agent-escrow',
       functionName: 'lock-payment',
       functionArgs: [
         uintCV(this.stxToMicroStx(amount)),
@@ -60,7 +60,7 @@ class StacksUtils {
   async releaseEscrow(taskId) {
     const txOptions = {
       contractAddress: process.env.ESCROW_CONTRACT_ADDRESS,
-      contractName: 'swarm-escrow',
+      contractName: process.env.ESCROW_CONTRACT_NAME || 'agent-escrow',
       functionName: 'release-payment',
       functionArgs: [stringAsciiCV(taskId)],
       senderKey: this.senderKey,

@@ -8,7 +8,7 @@ const fetch = require('node-fetch');
 
 class WeatherAgent extends Agent {
   constructor(config = {}) {
-    super({
+    const agentConfig = {
       id: config.id || 'weather-agent',
       name: config.name || 'Weather Reporter',
       version: '1.0.0',
@@ -40,10 +40,11 @@ class WeatherAgent extends Agent {
             timestamp: { type: 'number' }
           }
         }
-      },
-      execute: this.fetchWeather.bind(this)
-    });
+      }
+    };
 
+    super(agentConfig);
+    this.executeFunction = this.fetchWeather.bind(this);
     this.defaultCity = config.defaultCity || 'London';
   }
 

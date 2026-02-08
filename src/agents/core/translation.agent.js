@@ -8,7 +8,7 @@ const fetch = require('node-fetch');
 
 class TranslationAgent extends Agent {
   constructor(config = {}) {
-    super({
+    const agentConfig = {
       id: config.id || 'translation-agent',
       name: config.name || 'Translation Service',
       version: '1.0.0',
@@ -40,10 +40,11 @@ class TranslationAgent extends Agent {
             timestamp: { type: 'number' }
           }
         }
-      },
-      execute: this.translate.bind(this)
-    });
+      }
+    };
 
+    super(agentConfig);
+    this.executeFunction = this.translate.bind(this);
     this.defaultFrom = config.defaultFrom || 'en';
     this.defaultTo = config.defaultTo || 'es';
   }

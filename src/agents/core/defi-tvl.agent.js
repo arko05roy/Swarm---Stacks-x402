@@ -8,7 +8,7 @@ const fetch = require('node-fetch');
 
 class DeFiTVLAgent extends Agent {
   constructor(config = {}) {
-    super({
+    const agentConfig = {
       id: config.id || 'defi-tvl-agent',
       name: config.name || 'DeFi TVL Tracker',
       version: '1.0.0',
@@ -37,10 +37,11 @@ class DeFiTVLAgent extends Agent {
             timestamp: { type: 'number' }
           }
         }
-      },
-      execute: this.fetchTVL.bind(this)
-    });
+      }
+    };
 
+    super(agentConfig);
+    this.executeFunction = this.fetchTVL.bind(this);
     this.defaultProtocol = config.defaultProtocol || 'stacks';
   }
 

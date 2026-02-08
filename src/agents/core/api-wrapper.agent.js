@@ -12,7 +12,7 @@ class APIWrapperAgent extends Agent {
       throw new Error('apiUrl is required for APIWrapperAgent');
     }
 
-    super({
+    const agentConfig = {
       id: config.id || `api-wrapper-${Date.now()}`,
       name: config.name || 'Custom API Bot',
       version: '1.0.0',
@@ -37,10 +37,12 @@ class APIWrapperAgent extends Agent {
             timestamp: { type: 'number' }
           }
         }
-      },
-      execute: this.callAPI.bind(this)
-    });
+      }
+    };
 
+    super(agentConfig);
+
+    this.executeFunction = this.callAPI.bind(this);
     this.apiUrl = config.apiUrl;
     this.method = config.method || 'GET';
     this.headers = config.headers || {};

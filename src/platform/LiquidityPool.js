@@ -8,7 +8,6 @@
  * - Integration with composite agents
  */
 
-const { getStacksAccount } = require('../utils/stacksUtils');
 const {
   makeContractCall,
   broadcastTransaction,
@@ -16,17 +15,16 @@ const {
   PostConditionMode,
   uintCV,
   stringAsciiCV,
-  principalCV
+  standardPrincipalCV
 } = require('@stacks/transactions');
-const { StacksTestnet, StacksMainnet } = require('@stacks/network');
+const { STACKS_TESTNET } = require('@stacks/network');
 
 class LiquidityPool {
   constructor(config = {}) {
-    this.contractAddress = config.contractAddress || process.env.LIQUIDITY_POOL_CONTRACT;
-    this.contractName = config.contractName || 'liquidity-pool';
-    this.network = config.network === 'mainnet'
-      ? new StacksMainnet()
-      : new StacksTestnet();
+    this.contractAddress = config.contractAddress || process.env.LIQUIDITY_POOL_CONTRACT || process.env.STACKS_ADDRESS;
+    this.contractName = config.contractName || process.env.LIQUIDITY_POOL_NAME || 'agent-liquidity-pool';
+    this.network = STACKS_TESTNET;
+    this.senderKey = process.env.STACKS_WALLET_SEED;
 
     // Cache for pool stats
     this.statsCache = {
@@ -50,14 +48,12 @@ class LiquidityPool {
     const amountMicroSTX = Math.floor(amount * 1000000);
 
     try {
-      const account = await getStacksAccount(userId);
-
       const txOptions = {
         contractAddress: this.contractAddress,
         contractName: this.contractName,
         functionName: 'deposit',
         functionArgs: [uintCV(amountMicroSTX)],
-        senderKey: account.privateKey,
+        senderKey: this.senderKey,
         validateWithAbi: false,
         network: this.network,
         anchorMode: AnchorMode.Any,
@@ -65,7 +61,7 @@ class LiquidityPool {
       };
 
       const transaction = await makeContractCall(txOptions);
-      const result = await broadcastTransaction(transaction, this.network);
+      const result = await broadcastTransaction({ transaction, network: this.network });
 
       console.log(`💰 Deposited ${amount} STX to pool | TX: ${result.txid}`);
 
@@ -99,14 +95,12 @@ class LiquidityPool {
     const amountMicroSTX = Math.floor(amount * 1000000);
 
     try {
-      const account = await getStacksAccount(userId);
-
       const txOptions = {
         contractAddress: this.contractAddress,
         contractName: this.contractName,
         functionName: 'withdraw',
         functionArgs: [uintCV(amountMicroSTX)],
-        senderKey: account.privateKey,
+        senderKey: this.senderKey,
         validateWithAbi: false,
         network: this.network,
         anchorMode: AnchorMode.Any,
@@ -114,7 +108,7 @@ class LiquidityPool {
       };
 
       const transaction = await makeContractCall(txOptions);
-      const result = await broadcastTransaction(transaction, this.network);
+      const result = await broadcastTransaction({ transaction, network: this.network });
 
       console.log(`💸 Withdrew ${amount} STX from pool | TX: ${result.txid}`);
 
@@ -154,8 +148,6 @@ class LiquidityPool {
     const amountMicroSTX = Math.floor(amount * 1000000);
 
     try {
-      const account = await getStacksAccount(agentId);
-
       const txOptions = {
         contractAddress: this.contractAddress,
         contractName: this.contractName,
@@ -165,7 +157,7 @@ class LiquidityPool {
           uintCV(reputation),
           stringAsciiCV(purpose.substring(0, 100))
         ],
-        senderKey: account.privateKey,
+        senderKey: this.senderKey,
         validateWithAbi: false,
         network: this.network,
         anchorMode: AnchorMode.Any,
@@ -173,7 +165,7 @@ class LiquidityPool {
       };
 
       const transaction = await makeContractCall(txOptions);
-      const result = await broadcastTransaction(transaction, this.network);
+      const result = await broadcastTransaction({ transaction, network: this.network });
 
       console.log(`🏦 Agent borrowed ${amount} STX | TX: ${result.txid}`);
 
@@ -211,9 +203,6 @@ class LiquidityPool {
     const profitMicroSTX = Math.floor(profit * 1000000);
 
     try {
-      const account = await getStacksAccount(agentId);
-
-      // Convert loanId to uint (simplified for now)
       const loanIdNum = parseInt(loanId, 10) || 1;
 
       const txOptions = {
@@ -224,7 +213,7 @@ class LiquidityPool {
           uintCV(loanIdNum),
           uintCV(profitMicroSTX)
         ],
-        senderKey: account.privateKey,
+        senderKey: this.senderKey,
         validateWithAbi: false,
         network: this.network,
         anchorMode: AnchorMode.Any,
@@ -232,7 +221,7 @@ class LiquidityPool {
       };
 
       const transaction = await makeContractCall(txOptions);
-      const result = await broadcastTransaction(transaction, this.network);
+      const result = await broadcastTransaction({ transaction, network: this.network });
 
       const profitShare = profit * 0.1; // 10% profit share
       console.log(`✅ Loan repaid + ${profitShare} STX profit share | TX: ${result.txid}`);

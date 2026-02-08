@@ -7,6 +7,8 @@ const GeminiService = require('../services/geminiService');
 const WalletService = require('../services/walletService');
 const BotCreationService = require('../services/botCreationService');
 const RateLimiter = require('../services/rateLimiter');
+const EnhancedBotCommands = require('./enhancedBotCommands');
+const { initializeCoreAgents } = require('../core/initAgents');
 const { v4: uuidv4 } = require('uuid');
 
 class MainBot {
@@ -17,10 +19,18 @@ class MainBot {
     this.walletService = new WalletService();
     this.botCreation = new BotCreationService(this.walletService);
     this.rateLimiter = new RateLimiter();
+
+    // Initialize modular agent framework (Strategic Pivot #2)
+    initializeCoreAgents();
+    this.enhanced = new EnhancedBotCommands(this.bot, this.walletService);
+
     this.setupCommands();
   }
 
   setupCommands() {
+    // Setup enhanced commands (SDK, marketplace, pool)
+    this.enhanced.setupCommands();
+
     // Welcome message
     this.bot.onText(/\/start/, (msg) => {
       this.handleStart(msg);
@@ -72,10 +82,20 @@ class MainBot {
       this.handleExportWallet(msg);
     });
 
-    // Handle general messages (bot creation OR queries)
+    // Handle general messages (bot creation, enhanced sessions, OR queries)
     this.bot.on('message', async (msg) => {
       // Skip if command
       if (msg.text && msg.text.startsWith('/')) return;
+
+      // Check if user is in enhanced SDK session
+      if (this.enhanced.isInSession(msg.from.id)) {
+        const handled = await this.enhanced.handleSessionMessage(
+          msg.from.id,
+          msg.text,
+          msg.chat.id
+        );
+        if (handled) return;
+      }
 
       // Check if user is in bot creation session
       if (this.botCreation.isInSession(msg.from.id)) {
@@ -102,28 +122,35 @@ class MainBot {
 
     const welcomeMsg = `🐝 <b>Welcome to Swarm!</b>
 
-<b>Create AI agents in Telegram that earn Bitcoin.</b>
+<b>Build AI agent economies with Bitcoin micropayments.</b>
 
 👛 <b>Your Wallet:</b> <code>${wallet.address}</code>
-(auto-generated for you!)
 
 <b>How it works:</b>
-1. Create your own bot with /create_bot
-2. Your bot earns STX when users hire it
-3. Earnings go directly to your wallet!
+1. Create agents with /create_agent (4 methods!)
+2. Chain agents together into workflows
+3. Earn yield by providing liquidity to agents
 
 <b>Try asking:</b>
 • "What's the price of Bitcoin?"
 • "Weather in Paris?"
 • "Translate hello to Spanish"
 
-<b>Commands:</b>
-/create_bot - Create your AI agent 🤖
-/my_bots - See your bots &amp; earnings 💰
-/wallet - View your wallet 👛
-/bots - Browse marketplace 🏪
-/leaderboard - Top earning bots 🏆
-/help - Show all commands`;
+<b>Agent Commands:</b>
+/create_agent - Create with SDK (4 methods) 🤖
+/create_bot - Quick template creation 🎨
+/my_agents - Your agents + analytics 📊
+/browse_store - Agent marketplace 🏪
+
+<b>DeFi Pool:</b>
+/pool - Liquidity pool overview 💰
+/deposit [amt] - Earn yield from agent work 📈
+/pool_stats - Pool analytics 📊
+
+<b>More:</b>
+/wallet - Your wallet 👛
+/leaderboard - Top earners 🏆
+/help - All commands`;
 
     this.bot.sendMessage(msg.chat.id, welcomeMsg, { parse_mode: 'HTML' });
   }
@@ -216,30 +243,37 @@ class MainBot {
   }
 
   handleHelp(msg) {
-    const helpMsg = `🐝 <b>Swarm Commands</b>
+    const helpMsg = `🐝 <b>Swarm - AI Agent Economy</b>
 
-<b>Create &amp; Earn:</b>
-/create_bot - Create your AI agent (earns STX) 🤖
-/my_bots - Your bots and earnings 💰
+<b>Create Agents:</b>
+/create_agent - SDK creation (4 methods) 🤖
+/create_bot - Quick template creation 🎨
+/my_agents - Your agents + analytics 📊
+
+<b>Agent Marketplace:</b>
+/browse_store - Discover agents 🏪
+/search [query] - Search agents 🔍
+/bots - All available bots 🤖
+/leaderboard - Top earners 🏆
+
+<b>Liquidity Pool (DeFi):</b>
+/pool - Pool overview + your position 💰
+/deposit [amount] - Add liquidity (earn yield) 📈
+/withdraw [amount] - Remove liquidity 💸
+/pool_stats - Detailed pool analytics 📊
 
 <b>Wallet:</b>
 /wallet - View your wallet 👛
-/backup - Backup recovery phrase 🔐
-
-<b>Marketplace:</b>
-/bots - All available bots 🏪
-/leaderboard - Top earning bots 🏆
+/backup - Recovery phrase 🔐
 
 <b>Other:</b>
-/help - Show this message
-/cancel - Cancel bot creation
+/help - This message
+/cancel - Cancel creation
 
 <b>Just ask questions!</b>
-• "What's the Bitcoin price?"
-• "Weather in Tokyo?"
-• "Calculate 15 * 23"
+Agents are hired automatically via AI orchestrator.
 
-Your bot will be hired automatically! 🚀`;
+<b>Built on x402-stacks micropayments 🚀</b>`;
 
     this.bot.sendMessage(msg.chat.id, helpMsg, { parse_mode: 'HTML' });
   }

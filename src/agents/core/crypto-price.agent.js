@@ -8,7 +8,7 @@ const fetch = require('node-fetch');
 
 class CryptoPriceAgent extends Agent {
   constructor(config = {}) {
-    super({
+    const agentConfig = {
       id: config.id || 'crypto-price-agent',
       name: config.name || 'Crypto Price Oracle',
       version: '1.0.0',
@@ -39,10 +39,13 @@ class CryptoPriceAgent extends Agent {
             timestamp: { type: 'number' }
           }
         }
-      },
-      execute: this.fetchPrice.bind(this)
-    });
+      }
+    };
 
+    super(agentConfig);
+
+    // Set execute function after super()
+    this.executeFunction = this.fetchPrice.bind(this);
     this.defaultCoin = config.defaultCoin || 'bitcoin';
   }
 

@@ -8,7 +8,7 @@ const fetch = require('node-fetch');
 
 class CountryInfoAgent extends Agent {
   constructor(config = {}) {
-    super({
+    const agentConfig = {
       id: config.id || 'country-info-agent',
       name: config.name || 'Country Info Bot',
       version: '1.0.0',
@@ -42,10 +42,11 @@ class CountryInfoAgent extends Agent {
             timestamp: { type: 'number' }
           }
         }
-      },
-      execute: this.fetchCountryInfo.bind(this)
-    });
+      }
+    };
 
+    super(agentConfig);
+    this.executeFunction = this.fetchCountryInfo.bind(this);
     this.defaultCountry = config.defaultCountry || 'Japan';
   }
 

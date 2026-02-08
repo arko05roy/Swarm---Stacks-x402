@@ -8,7 +8,7 @@ const fetch = require('node-fetch');
 
 class JokeAgent extends Agent {
   constructor(config = {}) {
-    super({
+    const agentConfig = {
       id: config.id || 'joke-agent',
       name: config.name || 'Joke Generator',
       version: '1.0.0',
@@ -38,9 +38,11 @@ class JokeAgent extends Agent {
             timestamp: { type: 'number' }
           }
         }
-      },
-      execute: this.fetchJoke.bind(this)
-    });
+      }
+    };
+
+    super(agentConfig);
+    this.executeFunction = this.fetchJoke.bind(this);
   }
 
   async fetchJoke(input, context) {
