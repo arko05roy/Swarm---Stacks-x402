@@ -3,12 +3,18 @@ const BotRegistry = require('./botRegistry');
 const db = require('../database/db');
 const StacksUtils = require('../utils/stacksUtils');
 const Logger = require('../utils/logger');
+const GeminiService = require('../services/geminiService');
+const WalletService = require('../services/walletService');
+const BotCreationService = require('../services/botCreationService');
 const { v4: uuidv4 } = require('uuid');
 
 class MainBot {
   constructor(token) {
     this.bot = new TelegramBot(token, { polling: true });
     this.stacksUtils = new StacksUtils();
+    this.gemini = new GeminiService(); // LLM orchestrator
+    this.walletService = new WalletService(); // Platform wallet service
+    this.botCreation = new BotCreationService(this.walletService); // Bot creation with wallet
     this.setupCommands();
   }
 
@@ -28,38 +34,91 @@ class MainBot {
       this.handleBotList(msg);
     });
 
-    // Handle general queries
-    this.bot.on('message', (msg) => {
-      if (msg.text && !msg.text.startsWith('/')) {
+    // Create bot command
+    this.bot.onText(/\/create_bot/, (msg) => {
+      const response = this.botCreation.startSession(msg.from.id);
+      this.bot.sendMessage(msg.chat.id, response, { parse_mode: 'HTML' });
+    });
+
+    // My bots command
+    this.bot.onText(/\/my_bots/, (msg) => {
+      this.handleMyBots(msg);
+    });
+
+    // Cancel bot creation
+    this.bot.onText(/\/cancel/, (msg) => {
+      const response = this.botCreation.cancelSession(msg.from.id);
+      this.bot.sendMessage(msg.chat.id, response);
+    });
+
+    // Help command
+    this.bot.onText(/\/help/, (msg) => {
+      this.handleHelp(msg);
+    });
+
+    // Wallet commands (multiple aliases)
+    this.bot.onText(/\/(?:my_?wallet|wallet)/, (msg) => {
+      this.handleMyWallet(msg);
+    });
+
+    this.bot.onText(/\/(?:export_?wallet|backup)/, (msg) => {
+      this.handleExportWallet(msg);
+    });
+
+    // Handle general messages (bot creation OR queries)
+    this.bot.on('message', async (msg) => {
+      // Skip if command
+      if (msg.text && msg.text.startsWith('/')) return;
+
+      // Check if user is in bot creation session
+      if (this.botCreation.isInSession(msg.from.id)) {
+        const creationResponse = await this.botCreation.handleMessage(
+          msg.from.id,
+          msg.text
+        );
+
+        if (creationResponse) {
+          this.bot.sendMessage(msg.chat.id, creationResponse, { parse_mode: 'HTML' });
+        }
+      } else {
+        // Regular query handling
         this.handleQuery(msg);
       }
     });
   }
 
   handleStart(msg) {
-    const welcomeMsg = `🐝 Welcome to Swarm!
+    const userId = msg.from.id;
 
-I'm an AI that hires other AI bots to answer your questions.
+    // Auto-generate wallet if user doesn't have one
+    const wallet = this.walletService.generateWallet(userId);
 
-How it works:
-1. Ask me anything
-2. I find specialist bots to help
-3. I pay them in Bitcoin (STX)
-4. You get your answer
+    const welcomeMsg = `🐝 <b>Welcome to Swarm!</b>
 
-Try me:
+<b>Create AI agents in Telegram that earn Bitcoin.</b>
+
+👛 <b>Your Wallet:</b> <code>${wallet.address}</code>
+(auto-generated for you!)
+
+<b>How it works:</b>
+1. Create your own bot with /create_bot
+2. Your bot earns STX when users hire it
+3. Earnings go directly to your wallet!
+
+<b>Try asking:</b>
 • "What's the price of Bitcoin?"
-• "Weather in London?"
-• "Translate 'hello' to Spanish"
-• "Calculate 15 * 23 + 7"
+• "Weather in Paris?"
+• "Translate hello to Spanish"
 
-Commands:
-/bots - See all specialist bots
-/leaderboard - Top earning bots
+<b>Commands:</b>
+/create_bot - Create your AI agent 🤖
+/my_bots - See your bots &amp; earnings 💰
+/wallet - View your wallet 👛
+/bots - Browse marketplace 🏪
+/leaderboard - Top earning bots 🏆
+/help - Show all commands`;
 
-Let's go! 🚀`;
-
-    this.bot.sendMessage(msg.chat.id, welcomeMsg);
+    this.bot.sendMessage(msg.chat.id, welcomeMsg, { parse_mode: 'HTML' });
   }
 
   handleLeaderboard(msg) {
@@ -85,16 +144,143 @@ Let's go! 🚀`;
   handleBotList(msg) {
     const allBots = db.getAllBots();
 
-    let message = '🤖 Available Specialist Bots\n\n';
-    allBots.forEach(bot => {
-      message += `${bot.name}\n`;
-      message += `${bot.description}\n`;
-      message += `💰 ${bot.pricePerCall} STX per call\n`;
-      message += `⭐ ${bot.rating}/5.0 rating\n`;
-      message += `📊 ${bot.tasksCompleted} tasks completed\n\n`;
+    if (allBots.length === 0) {
+      this.bot.sendMessage(msg.chat.id, '🤖 No bots available yet. Create one with /create_bot');
+      return;
+    }
+
+    let message = '🤖 <b>Marketplace - All Bots</b>\n\n';
+
+    const systemBots = allBots.filter(b => !b.createdBy);
+    const userBots = allBots.filter(b => b.createdBy);
+
+    if (systemBots.length > 0) {
+      message += '<b>System Bots:</b>\n';
+      systemBots.forEach(bot => {
+        message += `\n🤖 ${bot.name}\n`;
+        message += `${bot.description}\n`;
+        message += `💰 ${bot.pricePerCall} STX per call\n`;
+        message += `📊 ${bot.tasksCompleted || 0} tasks completed\n`;
+      });
+    }
+
+    if (userBots.length > 0) {
+      message += '\n\n<b>User-Created Bots:</b>\n';
+      userBots.forEach(bot => {
+        message += `\n👤 ${bot.name}\n`;
+        message += `${bot.description}\n`;
+        message += `💰 ${bot.pricePerCall} STX per call\n`;
+        message += `📊 ${bot.tasksCompleted || 0} tasks completed\n`;
+      });
+    }
+
+    message += `\n\n📊 <b>Total:</b> ${allBots.length} bots (${systemBots.length} system, ${userBots.length} user-created)`;
+
+    this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'HTML' });
+  }
+
+  handleMyBots(msg) {
+    const userId = msg.from.id;
+    const userBots = db.getAllBots().filter(b => b.createdBy === userId);
+
+    if (userBots.length === 0) {
+      this.bot.sendMessage(
+        msg.chat.id,
+        "🤖 You haven't created any bots yet.\n\n<b>Create your first bot with /create_bot and start earning!</b> 💰",
+        { parse_mode: 'HTML' }
+      );
+      return;
+    }
+
+    let message = '🤖 <b>Your Bots</b>\n\n';
+
+    userBots.forEach((bot, index) => {
+      message += `<b>${index + 1}. ${bot.name}</b>\n`;
+      message += `💰 Price: ${bot.pricePerCall} STX/call\n`;
+      message += `📊 Earned: ${(bot.totalEarnings || 0).toFixed(4)} STX\n`;
+      message += `✅ Tasks: ${bot.tasksCompleted || 0}\n`;
+      message += `🎯 Capabilities: ${bot.capabilities.join(', ')}\n\n`;
     });
 
-    this.bot.sendMessage(msg.chat.id, message);
+    const totalEarnings = userBots.reduce((sum, bot) => sum + (bot.totalEarnings || 0), 0);
+    message += `💰 <b>Total Earnings:</b> ${totalEarnings.toFixed(4)} STX`;
+
+    this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'HTML' });
+  }
+
+  handleHelp(msg) {
+    const helpMsg = `🐝 <b>Swarm Commands</b>
+
+<b>Create &amp; Earn:</b>
+/create_bot - Create your AI agent (earns STX) 🤖
+/my_bots - Your bots and earnings 💰
+
+<b>Wallet:</b>
+/wallet - View your wallet 👛
+/backup - Backup recovery phrase 🔐
+
+<b>Marketplace:</b>
+/bots - All available bots 🏪
+/leaderboard - Top earning bots 🏆
+
+<b>Other:</b>
+/help - Show this message
+/cancel - Cancel bot creation
+
+<b>Just ask questions!</b>
+• "What's the Bitcoin price?"
+• "Weather in Tokyo?"
+• "Calculate 15 * 23"
+
+Your bot will be hired automatically! 🚀`;
+
+    this.bot.sendMessage(msg.chat.id, helpMsg, { parse_mode: 'HTML' });
+  }
+
+  handleMyWallet(msg) {
+    const userId = msg.from.id;
+    let wallet = this.walletService.getWallet(userId);
+
+    if (!wallet) {
+      wallet = this.walletService.generateWallet(userId);
+    }
+
+    const message = `👛 <b>Your Wallet</b>
+
+<b>Address:</b> <code>${wallet.address}</code>
+<b>Created:</b> ${new Date(wallet.createdAt).toLocaleDateString()}
+
+<b>How to add testnet funds:</b>
+1. Go to Stacks testnet faucet
+2. Paste your address
+3. Get free testnet STX!
+
+<b>Backup:</b> Use /backup to save your recovery phrase`;
+
+    this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'HTML' });
+  }
+
+  handleExportWallet(msg) {
+    const userId = msg.from.id;
+    const mnemonic = this.walletService.exportMnemonic(userId);
+
+    if (!mnemonic) {
+      this.bot.sendMessage(msg.chat.id, '❌ No wallet found. Use /start to generate one.');
+      return;
+    }
+
+    const message = `🔐 <b>Recovery Phrase (24 words)</b>
+
+<code>${mnemonic}</code>
+
+⚠️ <b>SAVE THIS SECURELY:</b>
+• This is your ONLY way to recover your wallet
+• Never share with anyone
+• Write it down on paper
+
+<b>Delete this message after saving!</b>`;
+
+    this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'HTML' });
   }
 
   async handleQuery(msg) {
@@ -106,139 +292,104 @@ Let's go! 🚀`;
     // Send "thinking" message
     const thinkingMsg = await this.bot.sendMessage(
       chatId,
-      '🤔 Analyzing your query...'
+      '🤖 AI Orchestrator analyzing your request...'
     );
 
     try {
-      // Parse query and determine needed capabilities
-      const tasks = this.parseQuery(userQuery);
+      // Get all available bots
+      const availableBots = db.getAllBots();
 
-      if (tasks.length === 0) {
+      if (availableBots.length === 0) {
         this.bot.editMessageText(
-          "❌ I couldn't understand that. Try asking about prices, weather, translation, or calculations.",
+          "❌ No bots available yet. System initializing...",
           { chat_id: chatId, message_id: thinkingMsg.message_id }
         );
         return;
       }
 
-      // Show which bots we're hiring
-      let statusMsg = '🐝 *Hiring bots:*\n\n';
-      tasks.forEach((task, i) => {
-        statusMsg += `${i + 1}. ${task.bot.name} - ${task.bot.pricePerCall} STX\n`;
-      });
-      statusMsg += `\n💰 Total: ${tasks.reduce((sum, t) => sum + t.bot.pricePerCall, 0)} STX`;
+      // PURE LLM ORCHESTRATION - Route via Gemini AI
+      Logger.info('Orchestrator routing query via Gemini AI...', { query: userQuery, availableBots: availableBots.length });
 
-      this.bot.editMessageText(statusMsg, {
-        chat_id: chatId,
-        message_id: thinkingMsg.message_id,
-        parse_mode: 'Markdown'
-      });
+      const routingPlan = await this.gemini.routeQuery(userQuery, availableBots);
+      Logger.info('Orchestrator decision', { plan: routingPlan });
 
-      // Execute tasks with escrow
-      const results = await this.executeTasks(tasks, chatId, thinkingMsg.message_id);
+      // If orchestrator can't understand or no suitable bots
+      if (!routingPlan || routingPlan.length === 0) {
+        this.bot.editMessageText(
+          "🤔 I analyzed your request but couldn't determine which specialist bots to hire.\n\nTry asking:\n• \"What's the Bitcoin price?\"\n• \"Weather in Paris?\"\n• \"Translate hello to Spanish\"\n• \"Calculate 15 * 23\"\n\nOr use /bots to see all available specialists.",
+          { chat_id: chatId, message_id: thinkingMsg.message_id }
+        );
+        return;
+      }
 
-      // Format final response
-      let finalMsg = '✅ *Results:*\n\n';
-      results.forEach((result, i) => {
-        finalMsg += `${i + 1}. ${this.formatResult(result)}\n\n`;
-      });
-      finalMsg += `\n💸 Paid ${tasks.reduce((sum, t) => sum + t.bot.pricePerCall, 0)} STX to ${tasks.length} bots`;
+      // Convert orchestrator's routing plan to executable tasks
+      const tasks = routingPlan.map(plan => {
+        const bot = availableBots.find(b => b.id === plan.botId);
+        if (!bot) {
+          Logger.error('Orchestrator selected unknown bot', { botId: plan.botId });
+          return null;
+        }
+        return {
+          capability: bot.capabilities[0],
+          bot: bot,
+          data: plan.params,
+          reasoning: plan.reasoning
+        };
+      }).filter(t => t !== null);
 
-      this.bot.editMessageText(finalMsg, {
-        chat_id: chatId,
-        message_id: thinkingMsg.message_id,
-        parse_mode: 'Markdown'
-      });
+      if (tasks.length === 0) {
+        this.bot.editMessageText(
+          "❌ Orchestrator couldn't match your request to available bots.\n\nUse /bots to see what I can help with.",
+          { chat_id: chatId, message_id: thinkingMsg.message_id }
+        );
+        return;
+      }
+
+      // Execute orchestrator's plan
+      Logger.info('Executing orchestrator plan', { taskCount: tasks.length });
+      await this.executeTasksAndRespond(tasks, chatId, thinkingMsg.message_id);
 
     } catch (error) {
-      Logger.error('Query failed', error);
+      Logger.error('Orchestrator failed', error);
       this.bot.editMessageText(
-        `❌ Something went wrong: ${error.message}`,
+        `❌ AI Orchestrator error: ${error.message}\n\nPlease try again or use /bots to see available specialists.`,
         { chat_id: chatId, message_id: thinkingMsg.message_id }
       );
     }
   }
 
-  parseQuery(query) {
-    const tasks = [];
-    const lowerQuery = query.toLowerCase();
+  /**
+   * Execute tasks and format response (extracted for reuse)
+   */
+  async executeTasksAndRespond(tasks, chatId, messageId) {
+    // Show which bots we're hiring
+    let statusMsg = '🐝 <b>Hiring bots:</b>\n\n';
+    tasks.forEach((task, i) => {
+      statusMsg += `${i + 1}. ${task.bot.name} - ${task.bot.pricePerCall} STX\n`;
+    });
+    statusMsg += `\n💰 Total: ${tasks.reduce((sum, t) => sum + t.bot.pricePerCall, 0)} STX`;
 
-    // Price check - try "price of X" first, then "X price"
-    const fillerWords = ['the', 'a', 'an', 'is', 'of', 'for', 'me', 'my', 'tell', 'get', 'show', 'and', 'also', 'whats', 'what'];
-    let priceSymbol = null;
+    this.bot.editMessageText(statusMsg, {
+      chat_id: chatId,
+      message_id: messageId,
+      parse_mode: 'HTML'
+    });
 
-    // Try "price of [the] X" pattern first (most reliable)
-    const priceOfMatch = lowerQuery.match(/price (?:of )?(?:the )?(?:a )?(\w+)/);
-    if (priceOfMatch && !fillerWords.includes(priceOfMatch[1])) {
-      priceSymbol = priceOfMatch[1];
-    }
+    // Execute tasks with escrow
+    const results = await this.executeTasks(tasks, chatId, messageId);
 
-    // Fallback: try "X price" pattern
-    if (!priceSymbol) {
-      const xPriceMatch = lowerQuery.match(/(\w+) price/);
-      if (xPriceMatch && !fillerWords.includes(xPriceMatch[1])) {
-        priceSymbol = xPriceMatch[1];
-      }
-    }
+    // Format final response
+    let finalMsg = '✅ <b>Results:</b>\n\n';
+    results.forEach((result, i) => {
+      finalMsg += `${i + 1}. ${this.formatResult(result)}\n\n`;
+    });
+    finalMsg += `\n💸 Paid ${tasks.reduce((sum, t) => sum + t.bot.pricePerCall, 0)} STX to ${tasks.length} bots`;
 
-    if (priceSymbol) {
-      const bot = BotRegistry.getBestBot('crypto-price');
-      if (bot) {
-        tasks.push({
-          capability: 'crypto-price',
-          bot,
-          data: { symbol: priceSymbol }
-        });
-      }
-    }
-
-    // Weather check
-    const weatherMatch = lowerQuery.match(/weather (?:in |at )?(\w+)/);
-    if (weatherMatch) {
-      const city = weatherMatch[1];
-      const bot = BotRegistry.getBestBot('weather');
-      if (bot) {
-        tasks.push({
-          capability: 'weather',
-          bot,
-          data: { city }
-        });
-      }
-    }
-
-    // Translation - with or without quotes
-    const translateMatch = lowerQuery.match(/translate ['""]?(.+?)['""]? to (\w+)/);
-    if (translateMatch) {
-      const text = translateMatch[1].trim();
-      const to = translateMatch[2];
-      const bot = BotRegistry.getBestBot('translate');
-      if (bot) {
-        tasks.push({
-          capability: 'translate',
-          bot,
-          data: { text, to }
-        });
-      }
-    }
-
-    // Math calculation
-    const mathMatch = lowerQuery.match(/calculate (.+)|what is (.+)/);
-    if (mathMatch) {
-      const expression = mathMatch[1] || mathMatch[2];
-      // Check if expression contains numbers and operators
-      if (/[0-9+\-*/]/.test(expression)) {
-        const bot = BotRegistry.getBestBot('calculate');
-        if (bot) {
-          tasks.push({
-            capability: 'calculate',
-            bot,
-            data: { expression }
-          });
-        }
-      }
-    }
-
-    return tasks;
+    this.bot.editMessageText(finalMsg, {
+      chat_id: chatId,
+      message_id: messageId,
+      parse_mode: 'HTML'
+    });
   }
 
   async executeTasks(tasks, chatId, messageId) {
@@ -336,20 +487,35 @@ Let's go! 🚀`;
     const data = result.result;
 
     // Format based on result type
-    if (data.price) {
-      return `💰 ${data.symbol.toUpperCase()}: $${data.price.toLocaleString()}`;
+    if (data.price !== undefined) {
+      const change = data.change24h ? ` (${data.change24h > 0 ? '+' : ''}${data.change24h.toFixed(2)}%)` : '';
+      return `💰 ${(data.symbol || '').toUpperCase()}: $${data.price.toLocaleString()}${change}`;
     }
-    if (data.temperature) {
+    if (data.temperature !== undefined) {
       return `🌤️ ${data.city}: ${data.temperature}°C, ${data.condition}`;
     }
     if (data.translated) {
-      return `🌍 Translation: "${data.translated}"`;
+      return `🌍 "${data.original}" → "${data.translated}" (${data.from}→${data.to})`;
     }
     if (data.result !== undefined) {
       return `🧮 Result: ${data.result}`;
     }
+    if (data.tvl !== undefined) {
+      return `📊 ${data.protocol}: TVL ${data.tvlFormatted || '$' + data.tvl.toLocaleString()}`;
+    }
+    if (data.joke) {
+      return `😄 ${data.joke}`;
+    }
+    if (data.capital) {
+      return `🌍 ${data.country}: Capital ${data.capital}, Pop. ${data.population?.toLocaleString()}, ${data.region}`;
+    }
 
-    return JSON.stringify(data);
+    // Generic JSON fallback
+    const keys = Object.keys(data).filter(k => k !== 'timestamp' && k !== 'source');
+    if (keys.length <= 4) {
+      return keys.map(k => `${k}: ${JSON.stringify(data[k])}`).join(', ');
+    }
+    return JSON.stringify(data, null, 1);
   }
 
   start() {
