@@ -22,7 +22,7 @@ class StacksUtils {
    * Convert STX amount to micro-STX (1 STX = 1,000,000 micro-STX)
    */
   stxToMicroStx(stx) {
-    return new BN(stx * 1_000_000);
+    return Math.floor(stx * 1_000_000);
   }
 
   /**
@@ -45,7 +45,7 @@ class StacksUtils {
     };
 
     const transaction = await makeContractCall(txOptions);
-    const broadcastResponse = await broadcastTransaction(transaction, this.network);
+    const broadcastResponse = await broadcastTransaction({ transaction, network: this.network });
 
     return {
       txId: broadcastResponse.txid,
@@ -70,7 +70,7 @@ class StacksUtils {
     };
 
     const transaction = await makeContractCall(txOptions);
-    const broadcastResponse = await broadcastTransaction(transaction, this.network);
+    const broadcastResponse = await broadcastTransaction({ transaction, network: this.network });
 
     return broadcastResponse.txid;
   }

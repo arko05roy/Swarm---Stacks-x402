@@ -76,24 +76,25 @@ const TranslationBot = {
   handler: async (taskData) => {
     const { text, from, to } = taskData;
 
-    // Use LibreTranslate free API
-    const response = await fetch('https://libretranslate.com/translate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        q: text,
-        source: from || 'en',
-        target: to || 'es'
-      })
-    });
+    const sourceLang = from || 'en';
+    const targetLang = to || 'es';
+
+    // Use MyMemory free translation API
+    const response = await fetch(
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLang}|${targetLang}`
+    );
 
     const data = await response.json();
 
+    if (!data.responseData || !data.responseData.translatedText) {
+      throw new Error(`Translation failed for "${text}"`);
+    }
+
     return {
       original: text,
-      translated: data.translatedText,
-      from: from || 'en',
-      to: to || 'es'
+      translated: data.responseData.translatedText,
+      from: sourceLang,
+      to: targetLang
     };
   }
 };

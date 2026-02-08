@@ -163,16 +163,31 @@ Let's go! 🚀`;
     const tasks = [];
     const lowerQuery = query.toLowerCase();
 
-    // Price check
-    const priceMatch = lowerQuery.match(/price of (\w+)|(\w+) price/);
-    if (priceMatch) {
-      const symbol = priceMatch[1] || priceMatch[2];
+    // Price check - try "price of X" first, then "X price"
+    const fillerWords = ['the', 'a', 'an', 'is', 'of', 'for', 'me', 'my', 'tell', 'get', 'show', 'and', 'also', 'whats', 'what'];
+    let priceSymbol = null;
+
+    // Try "price of [the] X" pattern first (most reliable)
+    const priceOfMatch = lowerQuery.match(/price (?:of )?(?:the )?(?:a )?(\w+)/);
+    if (priceOfMatch && !fillerWords.includes(priceOfMatch[1])) {
+      priceSymbol = priceOfMatch[1];
+    }
+
+    // Fallback: try "X price" pattern
+    if (!priceSymbol) {
+      const xPriceMatch = lowerQuery.match(/(\w+) price/);
+      if (xPriceMatch && !fillerWords.includes(xPriceMatch[1])) {
+        priceSymbol = xPriceMatch[1];
+      }
+    }
+
+    if (priceSymbol) {
       const bot = BotRegistry.getBestBot('crypto-price');
       if (bot) {
         tasks.push({
           capability: 'crypto-price',
           bot,
-          data: { symbol }
+          data: { symbol: priceSymbol }
         });
       }
     }
@@ -191,10 +206,10 @@ Let's go! 🚀`;
       }
     }
 
-    // Translation
-    const translateMatch = lowerQuery.match(/translate ['"](.+?)['"] to (\w+)/);
+    // Translation - with or without quotes
+    const translateMatch = lowerQuery.match(/translate ['""]?(.+?)['""]? to (\w+)/);
     if (translateMatch) {
-      const text = translateMatch[1];
+      const text = translateMatch[1].trim();
       const to = translateMatch[2];
       const bot = BotRegistry.getBestBot('translate');
       if (bot) {
@@ -232,45 +247,31 @@ Let's go! 🚀`;
     for (const task of tasks) {
       const taskId = uuidv4();
 
-      // Update status
-      this.bot.editMessageText(
-        `⏳ Hiring ${task.bot.name}... (locking ${task.bot.pricePerCall} STX in escrow)`,
-        { chat_id: chatId, message_id: messageId }
-      );
-
       try {
-        // Lock payment in escrow
-        const escrowTx = await this.stacksUtils.sendToEscrow(
-          task.bot.pricePerCall,
-          taskId,
-          task.bot.walletAddress
-        );
-
-        Logger.success('Escrow locked', { taskId, txId: escrowTx.txId });
-
-        // Store escrow info
-        db.createEscrow(taskId, {
-          botId: task.bot.id,
-          amount: task.bot.pricePerCall,
-          txId: escrowTx.txId
-        });
-
-        // Execute task
-        this.bot.editMessageText(
+        // Step 1: Execute the task (API call - fast)
+        await this.bot.editMessageText(
           `⚙️ ${task.bot.name} is working...`,
           { chat_id: chatId, message_id: messageId }
-        );
+        ).catch(() => {});
 
+        Logger.info('Executing task', { botId: task.bot.id, taskId, data: task.data });
         const result = await BotRegistry.executeTask(task.bot.id, task.data);
+        Logger.info('Task result', { botId: task.bot.id, success: result.success, error: result.error });
 
         if (result.success) {
-          // Release escrow
-          const releaseTx = await this.stacksUtils.releaseEscrow(taskId);
-          Logger.success('Escrow released', { taskId, txId: releaseTx });
+          // Step 2: Process payment on blockchain (async, don't block response)
+          await this.bot.editMessageText(
+            `💰 ${task.bot.name} delivered! Processing ${task.bot.pricePerCall} STX payment...`,
+            { chat_id: chatId, message_id: messageId }
+          ).catch(() => {});
 
-          // Update leaderboard
+          // Lock and immediately release escrow in background
+          this.processPayment(taskId, task).catch(err => {
+            Logger.error('Background payment failed', { taskId, error: err.message });
+          });
+
+          // Update leaderboard immediately (in-memory)
           db.addEarnings(task.bot.id, task.bot.pricePerCall);
-          db.releaseEscrow(taskId);
 
           results.push({
             botName: task.bot.name,
@@ -278,8 +279,7 @@ Let's go! 🚀`;
             paid: task.bot.pricePerCall
           });
         } else {
-          // Task failed - refund
-          Logger.error('Task failed, refunding', { taskId });
+          Logger.error('Task failed', { taskId, error: result.error });
           results.push({
             botName: task.bot.name,
             error: result.error,
@@ -288,7 +288,7 @@ Let's go! 🚀`;
         }
 
       } catch (error) {
-        Logger.error('Task execution failed', error);
+        Logger.error('Task execution failed', { error: error.message, stack: error.stack });
         results.push({
           botName: task.bot.name,
           error: error.message,
@@ -298,6 +298,34 @@ Let's go! 🚀`;
     }
 
     return results;
+  }
+
+  /**
+   * Process blockchain payment in background (don't block user response)
+   */
+  async processPayment(taskId, task) {
+    try {
+      // Lock payment in escrow
+      const escrowTx = await this.stacksUtils.sendToEscrow(
+        task.bot.pricePerCall,
+        taskId,
+        task.bot.walletAddress
+      );
+      Logger.success('Escrow locked', { taskId, txId: escrowTx.txId });
+
+      db.createEscrow(taskId, {
+        botId: task.bot.id,
+        amount: task.bot.pricePerCall,
+        txId: escrowTx.txId
+      });
+
+      // Release escrow to specialist bot
+      const releaseTx = await this.stacksUtils.releaseEscrow(taskId);
+      Logger.success('Escrow released', { taskId, txId: releaseTx });
+      db.releaseEscrow(taskId);
+    } catch (error) {
+      Logger.error('Payment processing error', { taskId, error: error.message });
+    }
   }
 
   formatResult(result) {
