@@ -1,0 +1,36 @@
+{
+  "name": "swarm-bot",
+  "version": "1.0.0",
+  "description": "Telegram bots that hire each other with Bitcoin",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arko05roy/Swarm---Stacks-x402.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/arko05roy/Swarm---Stacks-x402/issues"
+  },
+  "homepage": "https://github.com/arko05roy/Swarm---Stacks-x402#readme",
+  "dependencies": {
+    "@stacks/blockchain-api-client": "^8.13.6",
+    "@stacks/encryption": "^7.3.1",
+    "@stacks/network": "^7.3.1",
+    "@stacks/transactions": "^7.3.1",
+    "@stacks/wallet-sdk": "^7.2.0",
+    "bip39": "^3.1.0",
+    "bn.js": "^5.2.2",
+    "dotenv": "^17.2.4",
+    "hono": "^4.11.8",
+    "node-fetch": "^2.7.0",
+    "node-telegram-bot-api": "^0.67.0",
+    "uuid": "^13.0.0"
+  }
+}
