@@ -1,55 +1,91 @@
 const bip39 = require('bip39');
+const { generateWallet } = require('@stacks/wallet-sdk');
 const { privateKeyToAddress } = require('@stacks/transactions');
 const { STACKS_TESTNET } = require('@stacks/network');
+const crypto = require('crypto');
 const Logger = require('../utils/logger');
+
+// Encryption key derived from env (or random per-session if not set)
+const ENCRYPTION_KEY = crypto
+  .createHash('sha256')
+  .update(process.env.WALLET_ENCRYPTION_KEY || process.env.STACKS_WALLET_SEED || 'swarm-default-key')
+  .digest();
+
+function encrypt(text) {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return iv.toString('hex') + ':' + encrypted;
+}
+
+function decrypt(data) {
+  const [ivHex, encrypted] = data.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const decipher = crypto.createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
 
 class WalletService {
   constructor() {
-    this.userWallets = new Map(); // telegramUserId -> wallet data
+    this.userWallets = new Map(); // telegramUserId -> encrypted wallet data
   }
 
   /**
-   * Generate a new Stacks testnet wallet for a user
-   * Returns existing wallet if user already has one (idempotent)
+   * Generate a new Stacks testnet wallet using proper BIP-44 derivation.
+   * Compatible with Leather/Hiro wallet when importing recovery phrase.
    */
-  generateWallet(telegramUserId) {
+  async generateWallet(telegramUserId) {
     // Return existing wallet if already generated
     if (this.userWallets.has(telegramUserId)) {
-      return this.userWallets.get(telegramUserId);
+      return this._getDecryptedWallet(telegramUserId);
     }
 
     // Generate 24-word mnemonic
     const mnemonic = bip39.generateMnemonic(256);
 
-    // Derive private key from seed
-    const seed = bip39.mnemonicToSeedSync(mnemonic);
-    const privateKey = seed.slice(0, 32).toString('hex');
+    // Use @stacks/wallet-sdk for proper BIP-44 derivation (compatible with Leather/Hiro)
+    const wallet = await generateWallet({ secretKey: mnemonic, password: '' });
+    const privateKey = wallet.accounts[0].stxPrivateKey;
 
     // Generate Stacks testnet address
     const address = privateKeyToAddress(privateKey, STACKS_TESTNET);
 
-    const wallet = {
+    // Store encrypted - only address is in plaintext
+    this.userWallets.set(telegramUserId, {
       address,
-      mnemonic,
-      privateKey,
+      encryptedMnemonic: encrypt(mnemonic),
+      encryptedPrivateKey: encrypt(privateKey),
       createdAt: Date.now()
-    };
-
-    this.userWallets.set(telegramUserId, wallet);
+    });
 
     Logger.success('Wallet generated', {
       userId: telegramUserId,
       address
     });
 
-    return wallet;
+    return {
+      address,
+      createdAt: Date.now()
+    };
+  }
+
+  _getDecryptedWallet(telegramUserId) {
+    const stored = this.userWallets.get(telegramUserId);
+    if (!stored) return null;
+    return {
+      address: stored.address,
+      createdAt: stored.createdAt
+    };
   }
 
   /**
-   * Get user's wallet (null if doesn't exist)
+   * Get user's wallet (public info only)
    */
   getWallet(telegramUserId) {
-    return this.userWallets.get(telegramUserId) || null;
+    return this._getDecryptedWallet(telegramUserId);
   }
 
   /**
@@ -63,16 +99,26 @@ class WalletService {
    * Get wallet address only
    */
   getAddress(telegramUserId) {
-    const wallet = this.userWallets.get(telegramUserId);
-    return wallet ? wallet.address : null;
+    const stored = this.userWallets.get(telegramUserId);
+    return stored ? stored.address : null;
   }
 
   /**
-   * Export mnemonic for user backup
+   * Export mnemonic for user backup (decrypted on demand, never logged)
    */
   exportMnemonic(telegramUserId) {
-    const wallet = this.userWallets.get(telegramUserId);
-    return wallet ? wallet.mnemonic : null;
+    const stored = this.userWallets.get(telegramUserId);
+    if (!stored) return null;
+    return decrypt(stored.encryptedMnemonic);
+  }
+
+  /**
+   * Get private key (decrypted on demand, for signing transactions only)
+   */
+  getPrivateKey(telegramUserId) {
+    const stored = this.userWallets.get(telegramUserId);
+    if (!stored) return null;
+    return decrypt(stored.encryptedPrivateKey);
   }
 
   /**

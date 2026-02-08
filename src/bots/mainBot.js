@@ -87,11 +87,11 @@ class MainBot {
     });
   }
 
-  handleStart(msg) {
+  async handleStart(msg) {
     const userId = msg.from.id;
 
     // Auto-generate wallet if user doesn't have one
-    const wallet = this.walletService.generateWallet(userId);
+    const wallet = await this.walletService.generateWallet(userId);
 
     const welcomeMsg = `🐝 <b>Welcome to Swarm!</b>
 
@@ -237,12 +237,12 @@ Your bot will be hired automatically! 🚀`;
     this.bot.sendMessage(msg.chat.id, helpMsg, { parse_mode: 'HTML' });
   }
 
-  handleMyWallet(msg) {
+  async handleMyWallet(msg) {
     const userId = msg.from.id;
     let wallet = this.walletService.getWallet(userId);
 
     if (!wallet) {
-      wallet = this.walletService.generateWallet(userId);
+      wallet = await this.walletService.generateWallet(userId);
     }
 
     const message = `👛 <b>Your Wallet</b>
