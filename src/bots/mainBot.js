@@ -6,15 +6,17 @@ const Logger = require('../utils/logger');
 const GeminiService = require('../services/geminiService');
 const WalletService = require('../services/walletService');
 const BotCreationService = require('../services/botCreationService');
+const RateLimiter = require('../services/rateLimiter');
 const { v4: uuidv4 } = require('uuid');
 
 class MainBot {
   constructor(token) {
     this.bot = new TelegramBot(token, { polling: true });
     this.stacksUtils = new StacksUtils();
-    this.gemini = new GeminiService(); // LLM orchestrator
-    this.walletService = new WalletService(); // Platform wallet service
-    this.botCreation = new BotCreationService(this.walletService); // Bot creation with wallet
+    this.gemini = new GeminiService();
+    this.walletService = new WalletService();
+    this.botCreation = new BotCreationService(this.walletService);
+    this.rateLimiter = new RateLimiter();
     this.setupCommands();
   }
 
@@ -34,8 +36,13 @@ class MainBot {
       this.handleBotList(msg);
     });
 
-    // Create bot command
+    // Create bot command (rate limited: 5/hour)
     this.bot.onText(/\/create_bot/, (msg) => {
+      if (!this.rateLimiter.checkLimit(msg.from.id, 'create_bot', 5)) {
+        const mins = this.rateLimiter.getRemainingTime(msg.from.id, 'create_bot');
+        this.bot.sendMessage(msg.chat.id, `⏱️ Bot creation limit reached (5/hour). Try again in ${mins} min.`);
+        return;
+      }
       const response = this.botCreation.startSession(msg.from.id);
       this.bot.sendMessage(msg.chat.id, response, { parse_mode: 'HTML' });
     });
@@ -285,18 +292,24 @@ Your bot will be hired automatically! 🚀`;
 
   async handleQuery(msg) {
     const chatId = msg.chat.id;
+    const userId = msg.from.id;
     const userQuery = msg.text;
+
+    // Rate limit: 30 queries per hour
+    if (!this.rateLimiter.checkLimit(userId, 'query', 30)) {
+      const mins = this.rateLimiter.getRemainingTime(userId, 'query');
+      this.bot.sendMessage(chatId, `⏱️ Query limit reached (30/hour). Try again in ${mins} min.`);
+      return;
+    }
 
     Logger.info('Received query', { chatId, query: userQuery });
 
-    // Send "thinking" message
     const thinkingMsg = await this.bot.sendMessage(
       chatId,
       '🤖 AI Orchestrator analyzing your request...'
     );
 
     try {
-      // Get all available bots
       const availableBots = db.getAllBots();
 
       if (availableBots.length === 0) {
@@ -307,10 +320,13 @@ Your bot will be hired automatically! 🚀`;
         return;
       }
 
-      // PURE LLM ORCHESTRATION - Route via Gemini AI
-      Logger.info('Orchestrator routing query via Gemini AI...', { query: userQuery, availableBots: availableBots.length });
+      Logger.info('Orchestrator routing via Gemini AI...', { query: userQuery, botCount: availableBots.length });
 
-      const routingPlan = await this.gemini.routeQuery(userQuery, availableBots);
+      // Route with 15s timeout
+      const routingPlan = await Promise.race([
+        this.gemini.routeQuery(userQuery, availableBots),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('LLM timeout - try again')), 15000))
+      ]);
       Logger.info('Orchestrator decision', { plan: routingPlan });
 
       // If orchestrator can't understand or no suitable bots

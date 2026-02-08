@@ -1,9 +1,22 @@
+const { saveDatabase, loadDatabase } = require('./persistence');
+
 class Database {
   constructor() {
     this.botRegistry = new Map(); // botId -> bot config
     this.taskHistory = new Map(); // taskId -> task data
     this.leaderboard = new Map(); // botId -> earnings
     this.escrowTasks = new Map(); // taskId -> escrow status
+    this._saveTimer = null;
+  }
+
+  /**
+   * Schedule a debounced save (prevents writing on every single change)
+   */
+  _scheduleSave() {
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    this._saveTimer = setTimeout(() => {
+      saveDatabase(this);
+    }, 2000); // Save 2s after last change
   }
 
   // Bot Registry
@@ -11,10 +24,11 @@ class Database {
     this.botRegistry.set(botId, {
       ...config,
       registeredAt: Date.now(),
-      totalEarnings: 0,
-      tasksCompleted: 0,
-      rating: 5.0
+      totalEarnings: config.totalEarnings || 0,
+      tasksCompleted: config.tasksCompleted || 0,
+      rating: config.rating || 5.0
     });
+    this._scheduleSave();
   }
 
   getBot(botId) {
@@ -62,6 +76,7 @@ class Database {
       bot.totalEarnings += amount;
       bot.tasksCompleted += 1;
     }
+    this._scheduleSave();
   }
 
   getLeaderboard(limit = 10) {
@@ -94,6 +109,21 @@ class Database {
 
   getEscrow(taskId) {
     return this.escrowTasks.get(taskId);
+  }
+
+  /**
+   * Load persisted state (call after system bots are registered)
+   */
+  loadFromDisk() {
+    return loadDatabase(this);
+  }
+
+  /**
+   * Force save now
+   */
+  saveNow() {
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    saveDatabase(this);
   }
 }
 

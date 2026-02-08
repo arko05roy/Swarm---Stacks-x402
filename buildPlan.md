@@ -32,24 +32,70 @@
 
 ---
 
-## BUILD PROGRESS (Foundation Completed)
+## BUILD PROGRESS
 
-### ✅ COMPLETED (Current Working System)
+### ✅ FOUNDATION (Pre-Pivot)
 - [x] Environment setup, npm init, dependencies installed
 - [x] Telegram bot: @Swarmv1bot (https://t.me/Swarmv1bot)
 - [x] Stacks wallets (main + 4 specialist bots, funded with testnet STX)
 - [x] Project structure (src/bots, src/contracts, src/services, src/utils, src/database)
 - [x] Stacks utilities (stacksUtils.js) - micro-STX conversion, escrow lock/release
 - [x] **Escrow contract DEPLOYED** (ST2Q9TEZVYPTJ1Q2H5H2G9QREV21KS90YQ0SZH113.swarm-escrow)
-- [x] In-memory database (db.js) - bot registry, task history, leaderboard
 - [x] Bot registry (botRegistry.js) - register, find by capability, execute task
-- [x] 4 specialist bots (Price, Weather, Translation, Calculator) - WORKING
-- [x] Main orchestrator bot (mainBot.js) - basic query parsing, task routing, escrow
+- [x] 4 specialist bots (Price, Weather, Translation, Calculator) - WORKING with real APIs
 - [x] x402 payment flow - escrow lock → task execution → escrow release
-- [x] Leaderboard tracking bot earnings
-- [x] **END-TO-END DEMO WORKING**
 
-**Current demo works:** User asks → Regex parses → Hires bots → Payments flow → Leaderboard updates
+### ✅ DAY 1: LLM Orchestrator (DONE - Feb 8)
+- [x] Gemini API integrated (gemini-2.5-flash, free tier)
+- [x] `src/services/geminiService.js` - routeQuery() for pure LLM orchestration
+- [x] ALL regex removed - zero hardcoded routing
+- [x] Routes simple, multi-bot, and complex 3-bot queries correctly
+- [x] Tested: bitcoin price, weather in Tokyo, translate + weather + price combos
+- [x] `node-fetch` added to specialistBots.js (was missing, caused weather failures)
+
+### ✅ DAY 2: Bot Creation - Template System (DONE - Feb 8)
+- [x] **PIVOTED from Gemini code generation to template-based system** (Gemini was generating mock data)
+- [x] `src/services/botTemplates.js` - 7 templates, ALL backed by REAL free APIs:
+  - 💰 Crypto Price Oracle (CoinGecko)
+  - 🌤️ Weather Reporter (wttr.in)
+  - 📊 DeFi TVL Tracker (DeFiLlama)
+  - 🗣️ Translation Service (MyMemory)
+  - 🌍 Country Info (REST Countries)
+  - 😄 Joke Generator (Official Joke API)
+  - 🔧 Custom API (user-provided URL)
+- [x] `src/services/botCreationService.js` - Template selection flow: pick template → fill params → name → price → bot live
+- [x] Gemini only handles ROUTING, not code generation (removed generateBotCode, extractCapabilities)
+- [x] Bot handlers are closures capturing user's template params + calling real APIs at runtime
+
+### ✅ DAY 3-4: Wallets & Integration (DONE - Feb 8)
+- [x] `src/services/walletService.js` - Auto-generate Stacks testnet wallets on /start
+- [x] Proper BIP-44 derivation via `@stacks/wallet-sdk` (compatible with Leather/Hiro wallet)
+- [x] AES-256 encrypted key storage in memory (mnemonics & private keys never in plaintext)
+- [x] Recovery phrase importable into Leather wallet (verified)
+- [x] Commands: /wallet, /mywallet, /backup, /export_wallet (all aliased)
+- [x] Bot creation auto-assigns user's platform wallet (no manual wallet step)
+- [x] End-to-end: /start → wallet → /create_bot → template → params → name → price → bot live → hire → payment
+
+### ✅ DAY 5: Security & Persistence (DONE - Feb 8)
+- [x] `src/services/rateLimiter.js` - Rate limiting (30 queries/hr, 5 bot creations/hr)
+- [x] 10s bot execution timeout (botRegistry.js)
+- [x] 15s LLM routing timeout (mainBot.js)
+- [x] All Telegram messages use HTML parse mode (fixed Markdown parse errors)
+- [x] `src/database/persistence.js` - JSON file persistence to `data/` directory
+- [x] Wallets persist across restarts (`data/wallets.json`, encrypted)
+- [x] Bot registry, earnings, leaderboard persist (`data/db.json`)
+- [x] User-created bots restored on startup by re-attaching template handlers
+- [x] Graceful shutdown saves all data (SIGINT/SIGTERM handlers)
+
+### 🔲 DAY 6: Demo Video & Submission (TODO)
+- [ ] Final polish & bug fixes
+- [ ] Record 90-second demo video
+- [ ] Update README.md
+- [ ] Prepare DoraHacks submission
+- [ ] Screenshots (bot creation, earnings, leaderboard, Stacks explorer)
+- [ ] Submit
+
+**Current demo works:** User asks → Gemini AI routes → Hires bots (system or user-created) → Real API data returned → Blockchain payment → Leaderboard updates
 
 ---
 

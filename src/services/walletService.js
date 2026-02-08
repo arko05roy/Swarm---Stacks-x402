@@ -4,6 +4,7 @@ const { privateKeyToAddress } = require('@stacks/transactions');
 const { STACKS_TESTNET } = require('@stacks/network');
 const crypto = require('crypto');
 const Logger = require('../utils/logger');
+const { saveWallets, loadWallets } = require('../database/persistence');
 
 // Encryption key derived from env (or random per-session if not set)
 const ENCRYPTION_KEY = crypto
@@ -31,6 +32,21 @@ function decrypt(data) {
 class WalletService {
   constructor() {
     this.userWallets = new Map(); // telegramUserId -> encrypted wallet data
+    this._loadFromDisk();
+  }
+
+  _loadFromDisk() {
+    const wallets = loadWallets();
+    if (wallets) {
+      for (const [userId, data] of wallets) {
+        this.userWallets.set(userId, data);
+      }
+      Logger.info('Wallets restored', { count: wallets.length });
+    }
+  }
+
+  _saveToDisk() {
+    saveWallets(this.userWallets);
   }
 
   /**
@@ -65,6 +81,8 @@ class WalletService {
       userId: telegramUserId,
       address
     });
+
+    this._saveToDisk();
 
     return {
       address,

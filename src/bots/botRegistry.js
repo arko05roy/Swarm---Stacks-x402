@@ -9,13 +9,8 @@ class BotRegistry {
     const botId = config.id || `bot-${uuidv4()}`;
 
     db.registerBot(botId, {
-      id: botId,
-      name: config.name,
-      description: config.description,
-      capabilities: config.capabilities, // array of strings
-      pricePerCall: config.pricePerCall, // in STX
-      handler: config.handler, // function to execute task
-      walletAddress: config.walletAddress // where to receive payments
+      ...config,
+      id: botId
     });
 
     return botId;
@@ -53,7 +48,11 @@ class BotRegistry {
     if (!bot) throw new Error(`Bot ${botId} not found`);
 
     try {
-      const result = await bot.handler(taskData);
+      // 10 second timeout for bot execution
+      const result = await Promise.race([
+        bot.handler(taskData),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Bot execution timeout (10s)')), 10000))
+      ]);
       return {
         success: true,
         result,
