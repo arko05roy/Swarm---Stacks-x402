@@ -1,536 +1,390 @@
-# 🐝 Swarm
+<p align="center">
+  <img src="https://img.shields.io/badge/Stacks-Bitcoin_L2-orange?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/x402-Micropayments-blue?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Telegram-Bot-26A5E4?style=for-the-badge&logo=telegram" />
+  <img src="https://img.shields.io/badge/AI-LLM_Orchestration-purple?style=for-the-badge" />
+</p>
 
-**Build AI agent economies with Bitcoin micropayments**
+# SWARM
 
-Swarm is a modular framework for creating, composing, and monetizing autonomous AI agents on Telegram. Agents can hire each other, share work, and borrow from a DeFi liquidity pool — all settled with Bitcoin via Stacks blockchain and x402 protocol.
+### Create AI agents in Telegram that hire each other and earn Bitcoin.
 
----
+> **Zapier for AI Agents meets a DeFi liquidity pool -- all inside Telegram, all settled in Bitcoin via Stacks.**
 
-## 🎯 What Makes Swarm Different
-
-### **Not just bots — it's an economy**
-
-1. **Modular SDK** - Create agents in 4 ways (templates, API wrappers, custom code, composition)
-2. **Agent Composition** - Chain agents together into workflows
-3. **DeFi Primitive** - Liquidity pool for agent work lending
-4. **Marketplace** - Discover, rate, and hire agents
-5. **Bitcoin Settlements** - Real STX micropayments via x402-stacks
-
-### **Product, not project**
-- ✅ Extensible architecture anyone can build on
-- ✅ Production-grade: validation, analytics, reputation system
-- ✅ Real developers will use this post-hackathon
+**Live Bot:** [@Swarmv1bot](https://t.me/Swarmv1bot) -- try it right now, zero setup.
 
 ---
 
-## 🏗️ Architecture
+## The 30-Second Pitch
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Telegram Interface                   │
-│          (500M users, x402 micropayments)               │
-└────────────────────┬────────────────────────────────────┘
-                     │
-    ┌────────────────┼────────────────┐
-    │                │                │
-    ▼                ▼                ▼
-┌─────────┐    ┌──────────┐    ┌─────────────┐
-│   SDK   │    │ Registry │    │ Marketplace │
-│4 Methods│◄──►│Discovery │◄──►│Browse/Rate  │
-└─────────┘    └──────────┘    └─────────────┘
-    │                │                │
-    └────────────────┼────────────────┘
-                     │
-    ┌────────────────┼────────────────┐
-    │                │                │
-    ▼                ▼                ▼
-┌─────────┐    ┌──────────┐    ┌─────────────┐
-│ Agents  │    │Execution │    │  Analytics  │
-│Modular  │◄──►│ Engine   │◄──►│ Dashboard   │
-└─────────┘    └──────────┘    └─────────────┘
-    │
-    ▼
-┌──────────────────────────────────────────────┐
-│         Stacks Blockchain (Bitcoin L2)       │
-├──────────────────────────────────────────────┤
-│ Escrow Contract    │  Liquidity Pool         │
-│ • lock-payment     │  • deposit/withdraw     │
-│ • release-payment  │  • borrow/repay         │
-│ • refund-payment   │  • reputation-based     │
-│                    │  • 10% profit share     │
-└──────────────────────────────────────────────┘
-```
+You open Telegram. You type `/create_agent`. In 30 seconds you have a live AI agent that answers questions and **earns real STX every time someone hires it**. Behind the scenes, an LLM orchestrator routes user queries to the best agents, locks payments in an on-chain escrow, executes the task, releases payment to the creator's wallet, and updates a live leaderboard. Agents can even borrow working capital from a DeFi liquidity pool, repay with profit sharing, and build on-chain reputation.
+
+**This isn't a chatbot. It's an autonomous agent economy with real money flowing through smart contracts.**
 
 ---
 
-## 🚀 Quick Start
+## Why This Wins
 
-### **1. Create an Agent (4 Ways)**
+| What judges look for | How Swarm delivers |
+|---|---|
+| **"Can I try it in 10 seconds?"** | Open Telegram, message [@Swarmv1bot](https://t.me/Swarmv1bot). Done. |
+| **"Does money actually move?"** | Every query triggers escrow lock + release on Stacks testnet. Clickable tx links in chat. |
+| **"Is this impossible without x402?"** | Agent-to-agent micropayments (0.001-0.05 STX) are economically unviable without x402. Traditional rails: fees > payment. |
+| **"Would real people use this?"** | 500M Telegram users. No wallet install. No browser extension. No seed phrase ceremony. |
+| **"What's the DeFi angle?"** | On-chain liquidity pool where LPs earn yield from agent work profits. Reputation-gated borrowing. |
 
-#### **Method 1: Template (30 seconds)**
-```bash
-/create_bot
-> Quick Start
-> Crypto Price Oracle
-> bitcoin
-✅ Bot created: bitcoin-price-oracle
+---
+
+## Demo Flow
+
+```
+You:    /create_agent
+Swarm:  Choose creation method (1-4)
+You:    1 (Quick Start)
+Swarm:  Pick template: Crypto Price Oracle
+You:    bitcoin
+Swarm:  ✅ Agent is LIVE! ID: crypto-price-v1
+
+--- 5 seconds later, someone asks ---
+
+User:   "What's the Bitcoin price and weather in Tokyo?"
+Swarm:  🐝 Hiring 2 agents...
+          1. Crypto Price Oracle - 0.01 STX
+          2. Weather Reporter - 0.005 STX
+
+Swarm:  ✅ Results:
+          💰 BTC: $98,500 (+2.3%)
+          🌤️ Tokyo: 18°C, Sunny
+
+Swarm:  🔗 Payment confirmed on-chain
+          Escrow Lock: 2bb195...  [View on Explorer →]
+          Escrow Release: afd7b2... [View on Explorer →]
+
+You:    /withdraw_earnings crypto-price-v1
+Swarm:  ✅ 0.0100 STX sent to your wallet!
+          Transaction: 9f3a21... [View on Explorer →]
 ```
 
-#### **Method 2: API Wrapper (1 minute)**
-```javascript
-const bot = await createAgent.apiWrapper({
-  name: 'GitHub Stars',
-  endpoint: 'https://api.github.com/repos/{repo}',
-  transform: (data) => ({ stars: data.stargazers_count }),
-  pricing: { perCall: 0.005 }
-});
+**Every single payment is a real Stacks transaction. Every tx hash is clickable. Judges can verify on explorer.**
+
+---
+
+## Architecture
+
 ```
-
-#### **Method 3: Custom Code (Advanced)**
-```javascript
-const bot = await createAgent.custom({
-  name: 'Sentiment Analyzer',
-  execute: async (input) => {
-    const sentiment = await analyzeSentiment(input.text);
-    return { score: sentiment.score, label: sentiment.label };
-  },
-  pricing: { perCall: 0.01 }
-});
-```
-
-#### **Method 4: Compose Agents (Chain Workflows)**
-```javascript
-const bot = await createAgent.compose({
-  name: 'Crypto News Digest',
-  workflow: [
-    { agent: 'news-fetcher', input: { topic: 'bitcoin' } },
-    { agent: 'sentiment-analyzer', input: { texts: '$prev.articles' } },
-    { agent: 'summarizer', input: { text: '$prev', format: 'bullets' } }
-  ],
-  pricing: { perCall: 0.025 }
-});
-```
-
-### **2. Use Liquidity Pool**
-
-**Deposit STX (Become LP)**
-```bash
-/pool deposit 10
-✅ Deposited 10 STX to pool
-💰 Your share: 4.1% | APY: 18.5%
-```
-
-**Agents Borrow for Work**
-```bash
-Agent borrows 0.05 STX → Completes task → Repays 0.055 STX (10% profit share)
-                                                 ↓
-                                    LPs earn yield 📈
-```
-
-**Check Stats**
-```bash
-/pool_stats
-
-🏦 Liquidity Pool Stats
-━━━━━━━━━━━━━━━━━━━━
-💧 Total Liquidity: 245.50 STX
-📊 Borrowed: 191.50 STX (78%)
-📈 APY: 18.5%
-💰 Total Profit: 12.50 STX
-📊 Active Loans: 47
-✅ Success Rate: 99.1%
+┌─────────────────────────────────────────────────────────────────┐
+│                     TELEGRAM (500M users)                       │
+│              Zero install. Zero wallet setup.                   │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+                   ┌────────▼────────┐
+                   │  LLM ORCHESTRATOR │  Google Gemini 2.5 Flash
+                   │  Routes queries   │  to best agent(s)
+                   └────────┬────────┘
+                            │
+          ┌─────────────────┼─────────────────┐
+          │                 │                 │
+   ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐
+   │  AGENT SDK  │  │  REGISTRY   │  │ MARKETPLACE  │
+   │  4 creation │  │  Discovery  │  │  Browse/Rate │
+   │  methods    │  │  + routing  │  │  + Invest    │
+   └──────┬──────┘  └──────┬──────┘  └──────┬──────┘
+          │                │                 │
+          └─────────────── ┼ ────────────────┘
+                           │
+          ┌────────────────┼────────────────┐
+          │                │                │
+   ┌──────▼──────┐  ┌─────▼──────┐  ┌──────▼──────┐
+   │   7 CORE    │  │ EXECUTION  │  │  ANALYTICS  │
+   │   AGENTS    │  │  ENGINE    │  │  Dashboard  │
+   │  + user-    │  │  Sandboxed │  │  Real-time  │
+   │  created    │  │  + timeout │  │  metrics    │
+   └──────┬──────┘  └────────────┘  └─────────────┘
+          │
+   ┌──────▼──────────────────────────────────────────┐
+   │          STACKS BLOCKCHAIN (Bitcoin L2)          │
+   ├─────────────────────┬──────────────────────────  │
+   │   ESCROW v3         │   LIQUIDITY POOL v2       │
+   │   • lock-payment    │   • deposit / withdraw    │
+   │   • release-payment │   • borrow / repay        │
+   │   • refund-payment  │   • claim-earnings        │
+   │   • owner auth fix  │   • reputation system     │
+   │                     │   • 10% profit share      │
+   └─────────────────────┴───────────────────────────┘
 ```
 
 ---
 
-## 💡 Use Cases
+## Features That Matter
 
-### **1. Real-Time Data Agents**
-```bash
-User: "What's Bitcoin price and weather in Tokyo?"
+### 1. Agent Creation SDK (4 Methods)
 
-Swarm:
-🐝 Hiring:
-  💰 crypto-price-oracle (0.01 STX)
-  🌤️ weather-agent (0.005 STX)
+| Method | Time | Skill Level | Example |
+|--------|------|-------------|---------|
+| **Template** | 30 sec | Anyone | `/create_agent` → pick template → live |
+| **API Wrapper** | 1 min | Beginner | Wrap any REST API into a paid agent |
+| **Custom Code** | 5 min | Developer | Write JS execution logic |
+| **Compose** | 2 min | Intermediate | Chain agents into workflows |
 
-✅ Results:
-  BTC: $98,500 (+2.3%)
-  Tokyo: 18°C, Sunny
+### 2. Real Money Flows (Not Simulated)
+
+Every agent interaction triggers **actual Stacks transactions**:
+
+- **Escrow Lock**: Payer's STX locked in smart contract before task starts
+- **Escrow Release**: STX released to agent creator on successful completion
+- **Earnings Withdrawal**: Creator withdraws accumulated earnings to their wallet
+- **Investment Returns**: Investors withdraw principal + earnings with blockchain transfer
+- **LP Claims**: Liquidity providers claim their profit share on-chain
+
+All tx hashes displayed as clickable Stacks Explorer links in Telegram.
+
+### 3. DeFi Liquidity Pool
+
+```
+LP deposits 10 STX → Agent borrows 0.05 STX → Completes task
+                                                      │
+                     Agent repays 0.055 STX (10% profit share)
+                                │
+                     LP claims earnings via /claim_earnings
+                                │
+                     ✅ Real STX transferred on-chain
 ```
 
-### **2. Complex Workflows**
-```bash
-User: "Analyze sentiment of Bitcoin news and summarize"
+- Reputation-gated borrowing (minimum score: 50)
+- Automatic reputation tracking (success rate → score)
+- Default handling that correctly frees locked liquidity
+- Proportional profit distribution to LPs
 
-Swarm creates composite agent:
-  1. news-fetcher → fetch articles
-  2. sentiment-analyzer → score each article
-  3. summarizer → bullet points with sentiment
+### 4. Bot Investment System
+
+Users can **invest STX in bots** and earn proportional share of that bot's earnings:
+
+```
+/invest crypto-price-v1 5.0    → Buy 30% ownership
+/my_investments                 → Track portfolio + ROI
+/withdraw_all crypto-price-v1  → Withdraw principal + earnings (blockchain transfer)
 ```
 
-### **3. DeFi Operations**
-```bash
-Composite agent needs to:
-1. Check TVL across 3 protocols
-2. Translate results to Spanish
-3. Calculate averages
+### 5. LLM-Powered Orchestration
 
-⚡ Borrows 0.02 STX from pool
-⚡ Hires 4 specialist agents
-⚡ Repays 0.022 STX (10% profit to LPs)
-```
+No regex. No hardcoded routing. Gemini AI analyzes every query and:
+- Discovers the best agent(s) from the registry
+- Handles multi-agent queries ("Bitcoin price AND weather in Tokyo")
+- Routes to user-created agents alongside system agents
+- Falls back gracefully on ambiguous queries
 
 ---
 
-## 🧪 SDK Documentation
+## Deployed Smart Contracts
 
-### **Agent Standard Interface**
+### Stacks Testnet (Live)
 
-Every agent implements this contract:
+| Contract | Address | Explorer |
+|----------|---------|----------|
+| **Liquidity Pool v2** | `ST2Q9TEZVYPTJ1Q2H5H2G9QREV21KS90YQ0SZH113.agent-liquidity-pool-v2` | [View TX](https://explorer.hiro.so/txid/2bb195387888954ead03858267b8ff3ca531ba60ad5c770228fb021948dd2508?chain=testnet) |
+| **Escrow v3** | `ST2Q9TEZVYPTJ1Q2H5H2G9QREV21KS90YQ0SZH113.agent-escrow-v3` | [View TX](https://explorer.hiro.so/txid/afd7b24b3bf6bdd008e03c3623c79a35ac13d221961a9896aa98a1e94cdc3c48?chain=testnet) |
 
-```javascript
-module.exports = {
-  manifest: {
-    id: 'price-oracle-v1',
-    name: 'Price Oracle',
-    version: '1.0.0',
-    capabilities: ['crypto-price', 'market-data'],
-    pricing: {
-      basePrice: 0.01,
-      pricePerCall: 0.001,
-      currency: 'STX'
-    },
-    schema: {
-      input: {
-        type: 'object',
-        properties: {
-          symbol: { type: 'string', required: true }
-        }
-      },
-      output: {
-        type: 'object',
-        properties: {
-          price: { type: 'number' },
-          timestamp: { type: 'number' }
-        }
-      }
-    }
-  },
-
-  async execute(input, context) {
-    // Validate input
-    this.validateInput(input);
-
-    // Execute logic
-    const data = await fetch('...');
-
-    // Return structured output
-    return { price: data.price, timestamp: Date.now() };
-  },
-
-  async ping() {
-    return { status: 'healthy' };
-  },
-
-  estimateCost(input) {
-    return this.manifest.pricing.pricePerCall;
-  }
-};
-```
-
-### **Core Classes**
-
-#### **Agent.js**
-Base class for all agents with standard interface, metrics tracking, and validation.
-
-#### **AgentRegistry.js**
-Central registry for agent discovery, capability routing, and marketplace.
-
-#### **ExecutionEngine.js**
-Sandboxed agent execution with timeouts and concurrent execution limits.
-
-#### **Composer.js**
-Workflow execution engine for chaining agents with `$prev` variable passing.
+Both contracts deployed with **Clarity v2** for `stx-transfer?` + `as-contract` patterns.
 
 ---
 
-## 🏦 Liquidity Pool Mechanics
+## Quick Start
 
-### **How It Works**
-
-1. **LPs Deposit STX**
-   - Deposit to `agent-liquidity-pool` contract
-   - Earn share of profits based on pool share
-
-2. **Agents Borrow**
-   - Reputation ≥ 50 required
-   - Borrow up to available liquidity
-   - Purpose: complete composite workflows
-
-3. **Agents Repay + 10% Profit Share**
-   - Original amount + 10% of profit
-   - Profit share distributed to all LPs
-   - Reputation increases
-
-4. **LPs Earn Yield**
-   - Current APY: ~18.5%
-   - Profit compounded into pool
-   - Withdraw anytime (subject to liquidity)
-
-### **Reputation System**
-- Start: 100 points
-- Successful repayment: +1% per loan
-- Default: -10 points, score recalculated
-- Low reputation (< 50): Can't borrow
-
----
-
-## 📊 Deployed Contracts
-
-### **Testnet (Stacks)**
-
-**Liquidity Pool**
-- Address: `ST2Q9TEZVYPTJ1Q2H5H2G9QREV21KS90YQ0SZH113.agent-liquidity-pool`
-- TX: `cac5e24cafdccf65ec002c605f32e3a72569e5dde8ecfee55f19c8d84dc57e69`
-- Clarity Version: 2
-- [View on Explorer](https://explorer.stacks.co/txid/cac5e24cafdccf65ec002c605f32e3a72569e5dde8ecfee55f19c8d84dc57e69?chain=testnet)
-
-**Escrow Contract**
-- Address: `ST2Q9TEZVYPTJ1Q2H5H2G9QREV21KS90YQ0SZH113.agent-escrow`
-- TX: `bb8ebbbf65ac970e292ab68d0e1368487bcee71f5fb8b28cae7d14f3fed7bcdc`
-- Clarity Version: 2
-- [View on Explorer](https://explorer.stacks.co/txid/bb8ebbbf65ac970e292ab68d0e1368487bcee71f5fb8b28cae7d14f3fed7bcdc?chain=testnet)
-
----
-
-## 🛠️ Setup & Installation
-
-### **Prerequisites**
+### Prerequisites
 - Node.js 18+
 - Telegram account
-- Stacks wallet with testnet STX
 
-### **Installation**
+### Setup
 
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/swarm.git
+git clone https://github.com/ArkTrek/swarm.git
 cd swarm
-
-# Install dependencies
 npm install
 
-# Configure environment
+# Configure
 cp .env.example .env
-# Edit .env with your credentials:
-# - TELEGRAM_BOT_TOKEN
-# - STACKS_WALLET_SEED
-# - GEMINI_API_KEY
-```
+# Add: TELEGRAM_BOT_TOKEN, STACKS_WALLET_SEED, GEMINI_API_KEY
 
-### **Deploy Contracts (Optional)**
-
-```bash
-# Deploy liquidity pool and escrow
-node scripts/deploy-pool.js
-
-# Should output:
-# ✅ Liquidity Pool: success
-# ✅ Escrow: success
-```
-
-### **Run Bot**
-
-```bash
-# Start main bot
+# Run
 node index.js
+```
 
-# Test pivot 2 features
-node scripts/test-pivot2.js
+### Deploy Your Own Contracts
+
+```bash
+node scripts/deploy-v2.js
+# Deploys both LP and Escrow to Stacks testnet
+# Auto-waits for confirmation and prints contract addresses
 ```
 
 ---
 
-## 🤖 Bot Commands
+## Bot Commands
 
-### **Core**
-- `/start` - Welcome message
-- `/help` - Command list
-- `/leaderboard` - Top earning bots
+### Agent Economy
+| Command | Description |
+|---------|-------------|
+| `/create_agent` | Create agent (4 methods) |
+| `/create_bot` | Quick template creation |
+| `/my_agents` | Your agents + analytics |
+| `/my_bots` | Your bots + earnings |
+| `/browse_store` | Agent marketplace |
+| `/withdraw_earnings [id]` | Withdraw bot creator earnings |
 
-### **Agent Creation**
-- `/create_bot` - Create new agent (4 methods)
-- `/my_agents` - View your agents + analytics
-- `/browse_store` - Discover agents
+### DeFi Pool
+| Command | Description |
+|---------|-------------|
+| `/pool` | Pool overview + your position |
+| `/deposit [amt]` | Add liquidity, earn yield |
+| `/withdraw [amt]` | Remove liquidity |
+| `/claim_earnings` | Claim LP profit share |
+| `/pool_stats` | Detailed analytics |
 
-### **Liquidity Pool**
-- `/pool` - Pool overview
-- `/deposit <amount>` - Deposit STX to pool
-- `/withdraw <amount>` - Withdraw STX from pool
-- `/pool_stats` - Detailed pool statistics
+### Investment
+| Command | Description |
+|---------|-------------|
+| `/invest [botId] [amt]` | Invest in a bot |
+| `/my_investments` | Portfolio view |
+| `/withdraw_all [botId]` | Withdraw everything |
+| `/top_investments` | Best opportunities |
 
-### **Queries**
-- Ask any question - main bot routes to specialists
-
----
-
-## 📈 System Stats
-
-- **Agents Registered**: 10
-- **Unique Capabilities**: 24
-- **Total Liquidity**: 245.5 STX
-- **Pool Utilization**: 78%
-- **Total Loans Issued**: 1,247
-- **Success Rate**: 99.1%
-- **Active APY**: 18.5%
-
----
-
-## 🏆 Built For
-
-**x402 Stacks Challenge** (Feb 9-16, 2026)
-
-### **Why Swarm Showcases x402**
-
-1. **Impossible without micropayments**
-   - Agent-to-agent hiring requires tiny payments (0.001-0.05 STX)
-   - Traditional systems: fees > transaction value
-   - x402: Makes micro-transactions economically viable
-
-2. **New monetization model**
-   - Agents earn from work + reputation
-   - LPs earn yield from agent profits
-   - Composite agents create new value chains
-
-3. **Inspires builders**
-   - SDK framework others can extend
-   - 4 creation methods (beginner → advanced)
-   - Real product developers will use
-
-4. **Matches past Stacks winners**
-   - Renaissance: Bitcoin lending (2nd place)
-   - Swarm: Agent work lending (same primitive)
-   - Product-grade architecture
+### Wallet
+| Command | Description |
+|---------|-------------|
+| `/wallet` | Your auto-generated Stacks wallet |
+| `/backup` | Export recovery phrase (Leather-compatible) |
 
 ---
 
-## 🧪 Technical Highlights
-
-### **Clarity v2 Smart Contracts**
-- Used `clarityVersion: 2` for modern patterns
-- `stx-transfer?` with `as-contract` for escrow/pool
-- Reputation-based borrowing logic
-- Profit sharing calculations
-
-### **Agent Composition Engine**
-- Variable passing with `$prev` syntax
-- Sequential execution with error handling
-- Automatic cost estimation
-- Timeout protection (30s default)
-
-### **Modular Architecture**
-- Base `Agent` class with standard interface
-- Schema validation (input/output contracts)
-- Registry with capability-based routing
-- Analytics dashboard with real-time metrics
-
----
-
-## 📚 Project Structure
+## Project Structure
 
 ```
 swarm/
 ├── src/
-│   ├── core/
-│   │   ├── Agent.js              # Base agent class
-│   │   ├── AgentRegistry.js      # Discovery & routing
-│   │   ├── ExecutionEngine.js    # Sandboxed execution
-│   │   └── initAgents.js         # Auto-registration
+│   ├── core/                    # Framework engine
+│   │   ├── Agent.js             # Base agent class (standard interface)
+│   │   ├── AgentRegistry.js     # Discovery, routing, marketplace
+│   │   ├── ExecutionEngine.js   # Sandboxed execution + timeouts
+│   │   └── initAgents.js        # Auto-registration on boot
 │   │
-│   ├── sdk/
-│   │   ├── createAgent.js        # 4 creation methods
-│   │   ├── AgentSchema.js        # Validation
-│   │   └── Composer.js           # Workflow engine
+│   ├── sdk/                     # Agent creation SDK
+│   │   ├── createAgent.js       # 4 creation methods
+│   │   ├── AgentSchema.js       # Input/output validation
+│   │   └── Composer.js          # Workflow chaining engine
 │   │
-│   ├── agents/core/
-│   │   ├── crypto-price.agent.js
-│   │   ├── weather.agent.js
-│   │   ├── defi-tvl.agent.js
-│   │   ├── translation.agent.js
-│   │   ├── country-info.agent.js
-│   │   ├── joke.agent.js
-│   │   └── api-wrapper.agent.js
+│   ├── agents/core/             # 7 built-in agents (real APIs)
+│   │   ├── crypto-price.agent.js    # CoinGecko
+│   │   ├── weather.agent.js         # wttr.in
+│   │   ├── defi-tvl.agent.js        # DeFiLlama
+│   │   ├── translation.agent.js     # MyMemory
+│   │   ├── country-info.agent.js    # REST Countries
+│   │   ├── joke.agent.js            # Official Joke API
+│   │   └── api-wrapper.agent.js     # Any REST API
 │   │
-│   ├── platform/
-│   │   ├── LiquidityPool.js      # Pool integration
-│   │   └── Analytics.js          # Performance tracking
+│   ├── platform/                # Financial layer
+│   │   ├── LiquidityPool.js     # LP contract integration
+│   │   ├── BotInvestment.js     # Investment + revenue sharing
+│   │   └── Analytics.js         # Performance metrics
 │   │
-│   ├── contracts/
-│   │   ├── liquidity-pool.clar   # DeFi lending
-│   │   └── escrow.clar           # Payment escrow
+│   ├── contracts/               # Clarity smart contracts
+│   │   ├── liquidity-pool.clar  # DeFi lending pool
+│   │   └── escrow.clar          # Payment escrow
 │   │
-│   ├── bots/
-│   │   ├── mainBot.js            # Main Telegram bot
-│   │   └── enhancedBotCommands.js # New commands
+│   ├── bots/                    # Telegram interface
+│   │   ├── mainBot.js           # Core bot + payment flow
+│   │   └── enhancedBotCommands.js # SDK, pool, investment cmds
 │   │
-│   └── utils/
-│       └── stacksUtils.js        # Stacks helpers
+│   ├── services/                # Support services
+│   │   ├── geminiService.js     # LLM orchestration
+│   │   ├── walletService.js     # Auto-wallet generation
+│   │   ├── botCreationService.js # Template-based creation
+│   │   └── rateLimiter.js       # Abuse prevention
+│   │
+│   └── database/                # Persistence
+│       ├── db.js                # In-memory DB
+│       └── persistence.js       # JSON file persistence
 │
 ├── scripts/
-│   ├── deploy-pool.js            # Deploy contracts
-│   └── test-pivot2.js            # Test suite
+│   ├── deploy-v2.js             # Deploy both contracts
+│   └── deploy-pool.js           # Deploy pool only
 │
-├── .env                          # Configuration
-└── index.js                      # Entry point
+└── index.js                     # Entry point
 ```
 
 ---
 
-## 🎥 Demo Video
+## Technical Highlights
 
-[Coming soon - 90 second demo showing agent creation, composition, and liquidity pool]
+### Clarity v2 Smart Contracts
+- Escrow with dual authorization (payer OR contract owner can release)
+- LP pool with `claim-earnings` for proportional profit distribution
+- Reputation-based borrowing with automatic score calculation
+- Default handling that correctly frees locked liquidity
+
+### LLM Orchestration
+- Gemini 2.5 Flash for zero-latency query routing
+- Dynamic agent discovery (system + user-created agents)
+- Multi-agent query decomposition
+- 15-second timeout with graceful fallback
+
+### Security
+- AES-256 encrypted wallet storage (mnemonics + private keys)
+- BIP-44 derivation compatible with Leather/Hiro wallet
+- Bot execution sandboxing with 10s timeout
+- Rate limiting (30 queries/hr, 5 bot creations/hr)
+- Code validation blocking dangerous patterns (eval, require, fs, etc.)
+
+### Payment Integrity
+- Blockchain transfer rollback on failure (investment withdrawals)
+- Escrow prevents payment before task completion
+- Every transaction hash shown as clickable Explorer link in Telegram
+- Debounced persistence to prevent data loss
 
 ---
 
-## 🔮 Future Roadmap
+## Why x402 Makes This Possible
 
-- [ ] Agent versioning system
-- [ ] Multi-chain support (expand beyond Stacks)
-- [ ] Advanced workflows (conditional logic, loops)
-- [ ] Agent training marketplace
-- [ ] Mobile app (React Native)
+Traditional payment systems charge $0.30+ per transaction. Agent-to-agent micropayments are 0.001-0.05 STX ($0.001-$0.05). Without x402-stacks:
+- **Fees > Payment**: A $0.30 fee on a $0.01 payment is 3000% overhead
+- **No agent economy**: Agents can't economically hire each other
+- **No LP yield**: Profit shares too small to distribute
+
+With x402-stacks on Stacks:
+- **Sub-cent transactions**: 0.001 STX payments are viable
+- **Agent-to-agent hiring**: Composite workflows that chain 3-4 agents
+- **Real DeFi primitive**: LPs earn from millions of micro-transactions
+- **Bitcoin settlement**: STX settles on Bitcoin L1
+
+---
+
+
+
+- [x] LLM orchestrator (Gemini)
+- [x] Agent SDK (4 creation methods)
+- [x] Escrow smart contract (Clarity v2)
+- [x] Liquidity pool with profit sharing
+- [x] Bot investment + revenue sharing
+- [x] Wallet auto-generation (BIP-44)
+- [x] Creator earnings withdrawal
+- [x] LP earnings claiming
+- [x] On-chain tx verification in chat
+- [ ] Agent versioning
+- [ ] Mainnet deployment
+- [ ] Telegram Groups viral distribution
+- [ ] Advanced workflows (conditionals, loops)
 - [ ] Governance token for pool parameters
 
 ---
 
-## 🤝 Contributing
+## Built For
 
-We welcome contributions! Whether you're:
-- Creating new agent templates
-- Building composite workflows
-- Improving contracts
-- Adding features to SDK
-
-See [CONTRIBUTING.md] for guidelines.
+**x402 Stacks Challenge** | Feb 9-16, 2026 |
 
 ---
 
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE)
-
----
-
-## 🔗 Links
-
-- **Live Bot**: [@Swarmv1bot](https://t.me/Swarmv1bot)
-- **Explorer**: [Stacks Testnet](https://explorer.stacks.co/?chain=testnet)
-- **x402 Protocol**: [x402-stacks](https://github.com/x402-protocol/x402-stacks)
-- **Challenge**: [DoraHacks x402 Challenge](https://dorahacks.io)
-
----
-
-**Built with ❤️ on Stacks + x402**
-
-*Swarm - Where AI agents build economies, not just complete tasks.*
+<p align="center">
+  <b>Swarm -- Where AI agents build economies, not just complete tasks.</b>
+  <br><br>
+  <a href="https://t.me/Swarmv1bot">Try the live bot</a> |
+  <a href="https://explorer.hiro.so/txid/2bb195387888954ead03858267b8ff3ca531ba60ad5c770228fb021948dd2508?chain=testnet">View contracts on Explorer</a>
+</p>
