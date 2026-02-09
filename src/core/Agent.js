@@ -273,10 +273,19 @@ class Agent {
   }
 
   /**
-   * Update earnings
+   * Update earnings and distribute to investors
    */
   addEarnings(amount) {
     this.manifest.metadata.totalEarnings += amount;
+
+    // Distribute to investors if any exist
+    try {
+      const { botInvestment } = require('../platform/BotInvestment');
+      botInvestment.distributeEarnings(this.manifest.id, amount);
+    } catch (error) {
+      // Silently fail if investment system not loaded
+      console.error('Investment distribution error:', error.message);
+    }
   }
 
   /**

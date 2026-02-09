@@ -245,6 +245,46 @@ class LiquidityPool {
   }
 
   /**
+   * Claim LP earnings
+   * @param {string} userId - User ID
+   * @returns {Promise<Object>} - Claim result
+   */
+  async claimEarnings(userId) {
+    try {
+      const txOptions = {
+        contractAddress: this.contractAddress,
+        contractName: this.contractName,
+        functionName: 'claim-earnings',
+        functionArgs: [],
+        senderKey: this.senderKey,
+        validateWithAbi: false,
+        network: this.network,
+        anchorMode: AnchorMode.Any,
+        postConditionMode: PostConditionMode.Allow
+      };
+
+      const transaction = await makeContractCall(txOptions);
+      const result = await broadcastTransaction({ transaction, network: this.network });
+
+      console.log(`💸 LP earnings claimed | TX: ${result.txid}`);
+
+      return {
+        success: true,
+        txid: result.txid,
+        userId,
+        amount: 0 // Will be parsed from contract response in production
+      };
+
+    } catch (error) {
+      console.error('Claim earnings error:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
    * Get pool statistics
    * @returns {Promise<Object>} - Pool stats
    */

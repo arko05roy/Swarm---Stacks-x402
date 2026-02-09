@@ -11,7 +11,10 @@
 const { fromTemplate, apiWrapper, custom, compose, listTemplates } = require('../sdk/createAgent');
 const { registry } = require('../core/AgentRegistry');
 const { liquidityPool } = require('../platform/LiquidityPool');
+const { botInvestment } = require('../platform/BotInvestment');
 const { executionEngine } = require('../core/ExecutionEngine');
+
+const EXPLORER_BASE = 'https://explorer.hiro.so/txid';
 
 class EnhancedBotCommands {
   constructor(bot, walletService) {
@@ -20,6 +23,11 @@ class EnhancedBotCommands {
 
     // Session management for multi-step flows
     this.sessions = new Map(); // userId -> session data
+  }
+
+  /** Format a tx hash as a clickable explorer link */
+  txLink(txid) {
+    return `<a href="${EXPLORER_BASE}/${txid}?chain=testnet">${txid.slice(0, 16)}...</a>`;
   }
 
   /**
@@ -38,7 +46,16 @@ class EnhancedBotCommands {
     this.bot.onText(/\/pool/, (msg) => this.handlePool(msg));
     this.bot.onText(/\/deposit (.+)/, (msg, match) => this.handleDeposit(msg, parseFloat(match[1])));
     this.bot.onText(/\/withdraw (.+)/, (msg, match) => this.handleWithdraw(msg, parseFloat(match[1])));
+    this.bot.onText(/\/claim_earnings/, (msg) => this.handleClaimEarnings(msg));
     this.bot.onText(/\/pool_stats/, (msg) => this.handlePoolStats(msg));
+
+    // Bot investment commands
+    this.bot.onText(/\/invest ([^\s]+)\s+(.+)/, (msg, match) => this.handleInvest(msg, match[1], parseFloat(match[2])));
+    this.bot.onText(/\/withdraw_investment ([^\s]+)\s+(.+)/, (msg, match) => this.handleWithdrawInvestment(msg, match[1], parseFloat(match[2])));
+    this.bot.onText(/\/withdraw_all ([^\s]+)/, (msg, match) => this.handleWithdrawAll(msg, match[1]));
+    this.bot.onText(/\/my_investments/, (msg) => this.handleMyInvestments(msg));
+    this.bot.onText(/\/bot_stats ([^\s]+)/, (msg, match) => this.handleBotStats(msg, match[1]));
+    this.bot.onText(/\/top_investments/, (msg) => this.handleTopInvestments(msg));
   }
 
   /**
@@ -197,12 +214,12 @@ Build workflows by chaining existing agents.
   }
 
   /**
-   * Handle /browse_store - Browse marketplace
+   * Handle /browse_store - Browse marketplace with investment data
    */
   async handleBrowseStore(msg) {
     const trending = registry.getTrending(5);
     const topRated = registry.getTopRated(5);
-    const newest = registry.getNewest(5);
+    const topInvestments = botInvestment.getTopOpportunities(5);
 
     let message = `🏪 <b>Agent Marketplace</b>\n\n`;
 
@@ -210,7 +227,17 @@ Build workflows by chaining existing agents.
       message += `🔥 <b>Trending (24h)</b>\n`;
       trending.forEach((a, i) => {
         message += `${i + 1}. ${a.name} - ${a.metadata.calls} calls\n`;
-        message += `   💰 ${a.pricing.pricePerCall} STX/call\n`;
+        message += `   💰 ${a.pricing.pricePerCall} STX/call | ✅ ${a.metadata.successRate.toFixed(1)}%\n`;
+      });
+      message += `\n`;
+    }
+
+    if (topInvestments.length > 0) {
+      message += `📈 <b>Top Investment Opportunities</b>\n`;
+      topInvestments.forEach((opp, i) => {
+        const apyIcon = opp.projectedAPY > 100 ? '🚀' : opp.projectedAPY > 50 ? '📈' : '📊';
+        message += `${i + 1}. ${opp.botName}\n`;
+        message += `   ${apyIcon} ${opp.projectedAPY.toFixed(1)}% APY | 💰 ${opp.totalInvested.toFixed(2)} STX invested\n`;
       });
       message += `\n`;
     }
@@ -218,20 +245,16 @@ Build workflows by chaining existing agents.
     if (topRated.length > 0) {
       message += `⭐ <b>Top Rated</b>\n`;
       topRated.forEach((a, i) => {
-        message += `${i + 1}. ${a.name} - ${a.metadata.reputation}% success\n`;
+        message += `${i + 1}. ${a.name} - ${a.metadata.reputation.toFixed(0)}% success\n`;
       });
       message += `\n`;
     }
 
-    if (newest.length > 0) {
-      message += `🆕 <b>Recently Added</b>\n`;
-      newest.forEach((a, i) => {
-        message += `${i + 1}. ${a.name}\n`;
-      });
-    }
-
-    message += `\n📊 <b>Total agents:</b> ${registry.list().length}`;
-    message += `\n\nUse /search [query] to find specific agents`;
+    message += `📊 <b>Total agents:</b> ${registry.list().length}`;
+    message += `\n\n<b>Commands:</b>`;
+    message += `\n/search [query] - Find agents`;
+    message += `\n/top_investments - Best investment opportunities`;
+    message += `\n/invest [botId] [amount] - Invest in a bot`;
 
     await this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'HTML' });
   }
@@ -329,7 +352,8 @@ Total Profit: ${poolStats.totalProfitEarned.toFixed(4)} STX
 
 <b>Commands:</b>
 /deposit [amount] - Add liquidity
-/withdraw [amount] - Remove liquidity
+/withdraw [amount] - Remove liquidity (principal only)
+/claim_earnings - Claim your profit share
 /pool_stats - Detailed analytics`;
 
     await this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'HTML' });
@@ -358,12 +382,13 @@ Total Profit: ${poolStats.totalProfitEarned.toFixed(4)} STX
       if (result.success) {
         await this.bot.editMessageText(
           `✅ Successfully deposited ${amount} STX!\n\n` +
-          `Transaction: <code>${result.txid}</code>\n\n` +
+          `Transaction: ${this.txLink(result.txid)}\n\n` +
           `You're now earning yield from agent work! 🚀`,
           {
             chat_id: msg.chat.id,
             message_id: thinkingMsg.message_id,
-            parse_mode: 'HTML'
+            parse_mode: 'HTML',
+            disable_web_page_preview: true
           }
         );
       } else {
@@ -403,16 +428,57 @@ Total Profit: ${poolStats.totalProfitEarned.toFixed(4)} STX
       if (result.success) {
         await this.bot.editMessageText(
           `✅ Successfully withdrew ${amount} STX!\n\n` +
-          `Transaction: <code>${result.txid}</code>`,
+          `Transaction: ${this.txLink(result.txid)}`,
           {
             chat_id: msg.chat.id,
             message_id: thinkingMsg.message_id,
-            parse_mode: 'HTML'
+            parse_mode: 'HTML',
+            disable_web_page_preview: true
           }
         );
       } else {
         await this.bot.editMessageText(
           `❌ Withdrawal failed: ${result.error}`,
+          { chat_id: msg.chat.id, message_id: thinkingMsg.message_id }
+        );
+      }
+    } catch (error) {
+      await this.bot.editMessageText(
+        `❌ Error: ${error.message}`,
+        { chat_id: msg.chat.id, message_id: thinkingMsg.message_id }
+      );
+    }
+  }
+
+  /**
+   * Handle /claim_earnings - Claim LP earnings
+   */
+  async handleClaimEarnings(msg) {
+    const userId = msg.from.id.toString();
+    const thinkingMsg = await this.bot.sendMessage(
+      msg.chat.id,
+      `💸 Claiming your LP earnings...`
+    );
+
+    try {
+      const result = await liquidityPool.claimEarnings(userId);
+
+      if (result.success) {
+        await this.bot.editMessageText(
+          `✅ Successfully claimed earnings!\n\n` +
+          `Amount: ${result.amount.toFixed(4)} STX\n` +
+          `Transaction: ${this.txLink(result.txid)}\n\n` +
+          `🎉 Earnings sent to your wallet!`,
+          {
+            chat_id: msg.chat.id,
+            message_id: thinkingMsg.message_id,
+            parse_mode: 'HTML',
+            disable_web_page_preview: true
+          }
+        );
+      } else {
+        await this.bot.editMessageText(
+          `❌ Claim failed: ${result.error}`,
           { chat_id: msg.chat.id, message_id: thinkingMsg.message_id }
         );
       }
@@ -492,6 +558,226 @@ Utilization: ${stats.utilization}%`;
    */
   cancelSession(userId) {
     this.sessions.delete(userId);
+  }
+
+  /**
+   * Handle /invest - Invest in a bot
+   */
+  async handleInvest(msg, botId, amount) {
+    const userId = msg.from.id.toString();
+
+    if (!amount || amount <= 0) {
+      return this.bot.sendMessage(
+        msg.chat.id,
+        '❌ Invalid amount. Usage: /invest [botId] [amount]\n\nExample: /invest agent_123 1.5'
+      );
+    }
+
+    const thinkingMsg = await this.bot.sendMessage(
+      msg.chat.id,
+      `💰 Investing ${amount} STX in bot...`
+    );
+
+    try {
+      const result = botInvestment.invest(userId, botId, amount);
+
+      await this.bot.editMessageText(
+        `✅ Investment successful!\n\n` +
+        `Bot: <b>${result.botName}</b>\n` +
+        `Invested: ${result.amount.toFixed(4)} STX\n` +
+        `Total Invested: ${result.totalInvested.toFixed(4)} STX\n` +
+        `Your Ownership: ${result.ownership.toFixed(2)}%\n\n` +
+        `💡 You'll earn ${result.ownership.toFixed(2)}% of bot's earnings!\n\n` +
+        `Track performance: /my_investments`,
+        {
+          chat_id: msg.chat.id,
+          message_id: thinkingMsg.message_id,
+          parse_mode: 'HTML'
+        }
+      );
+
+    } catch (error) {
+      await this.bot.editMessageText(
+        `❌ Investment failed: ${error.message}\n\n` +
+        `Try /browse_store to see available bots`,
+        {
+          chat_id: msg.chat.id,
+          message_id: thinkingMsg.message_id
+        }
+      );
+    }
+  }
+
+  /**
+   * Handle /withdraw_investment - Withdraw from specific bot
+   */
+  async handleWithdrawInvestment(msg, botId, amount) {
+    const userId = msg.from.id.toString();
+
+    if (!amount || amount <= 0) {
+      return this.bot.sendMessage(
+        msg.chat.id,
+        '❌ Invalid amount. Usage: /withdraw_investment [botId] [amount]\n\nExample: /withdraw_investment agent_123 0.5'
+      );
+    }
+
+    const thinkingMsg = await this.bot.sendMessage(
+      msg.chat.id,
+      `💸 Withdrawing ${amount} STX...`
+    );
+
+    try {
+      const result = await botInvestment.withdraw(userId, botId, amount);
+
+      await this.bot.editMessageText(
+        `✅ Withdrawal successful!\n\n` +
+        `Bot: <b>${result.botName}</b>\n` +
+        `Withdrawn: ${result.totalWithdrawn.toFixed(4)} STX\n` +
+        `  Principal: ${result.principalWithdrawn.toFixed(4)} STX\n` +
+        `  Earnings: ${result.earningsWithdrawn.toFixed(4)} STX\n\n` +
+        `Remaining Investment: ${result.remainingInvestment.toFixed(4)} STX\n` +
+        `Remaining Ownership: ${result.remainingOwnership.toFixed(2)}%\n\n` +
+        `Transaction: ${this.txLink(result.txId)}\n\n` +
+        `💡 Funds sent to your wallet!`,
+        {
+          chat_id: msg.chat.id,
+          message_id: thinkingMsg.message_id,
+          parse_mode: 'HTML',
+          disable_web_page_preview: true
+        }
+      );
+
+    } catch (error) {
+      await this.bot.editMessageText(
+        `❌ Withdrawal failed: ${error.message}`,
+        {
+          chat_id: msg.chat.id,
+          message_id: thinkingMsg.message_id
+        }
+      );
+    }
+  }
+
+  /**
+   * Handle /withdraw_all - Withdraw entire position from bot
+   */
+  async handleWithdrawAll(msg, botId) {
+    const userId = msg.from.id.toString();
+
+    const thinkingMsg = await this.bot.sendMessage(
+      msg.chat.id,
+      `💸 Withdrawing all funds from bot...`
+    );
+
+    try {
+      const result = await botInvestment.withdrawAll(userId, botId);
+
+      await this.bot.editMessageText(
+        `✅ Complete withdrawal successful!\n\n` +
+        `Bot: <b>${result.botName}</b>\n` +
+        `Total Withdrawn: ${result.totalWithdrawn.toFixed(4)} STX\n` +
+        `  Principal: ${result.principalWithdrawn.toFixed(4)} STX\n` +
+        `  Earnings: ${result.earningsWithdrawn.toFixed(4)} STX\n\n` +
+        `Transaction: ${this.txLink(result.txId)}\n\n` +
+        `🎉 Position closed. Funds sent to your wallet!`,
+        {
+          chat_id: msg.chat.id,
+          message_id: thinkingMsg.message_id,
+          parse_mode: 'HTML',
+          disable_web_page_preview: true
+        }
+      );
+
+    } catch (error) {
+      await this.bot.editMessageText(
+        `❌ Withdrawal failed: ${error.message}`,
+        {
+          chat_id: msg.chat.id,
+          message_id: thinkingMsg.message_id
+        }
+      );
+    }
+  }
+
+  /**
+   * Handle /my_investments - Show investor's portfolio
+   */
+  async handleMyInvestments(msg) {
+    const userId = msg.from.id.toString();
+
+    try {
+      const portfolio = botInvestment.getInvestorPortfolio(userId);
+      const message = botInvestment.formatPortfolio(portfolio);
+
+      await this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'HTML' });
+
+    } catch (error) {
+      await this.bot.sendMessage(
+        msg.chat.id,
+        `❌ Error loading portfolio: ${error.message}`
+      );
+    }
+  }
+
+  /**
+   * Handle /bot_stats - Show bot investment stats
+   */
+  async handleBotStats(msg, botId) {
+    try {
+      const stats = botInvestment.getBotStats(botId);
+      const message = botInvestment.formatBotStats(stats);
+
+      await this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'HTML' });
+
+    } catch (error) {
+      await this.bot.sendMessage(
+        msg.chat.id,
+        `❌ Bot not found: ${error.message}\n\nUse /browse_store to see available bots`
+      );
+    }
+  }
+
+  /**
+   * Handle /top_investments - Show best investment opportunities
+   */
+  async handleTopInvestments(msg) {
+    try {
+      const opportunities = botInvestment.getTopOpportunities(10);
+
+      if (opportunities.length === 0) {
+        return this.bot.sendMessage(
+          msg.chat.id,
+          '📊 No investment opportunities available yet.\n\nCreate some bots first with /create_agent!'
+        );
+      }
+
+      let message = `🔥 <b>Top Investment Opportunities</b>\n\n`;
+
+      opportunities.forEach((opp, i) => {
+        const apyIcon = opp.projectedAPY > 100 ? '🚀' : opp.projectedAPY > 50 ? '📈' : '📊';
+
+        message += `<b>${i + 1}. ${opp.botName}</b>\n`;
+        message += `   ${apyIcon} Projected APY: ${opp.projectedAPY.toFixed(1)}%\n`;
+        message += `   💰 Total Invested: ${opp.totalInvested.toFixed(4)} STX\n`;
+        message += `   📞 Calls: ${opp.calls}\n`;
+        message += `   👥 Investors: ${opp.investorCount}\n`;
+        message += `   💸 Total Earnings: ${opp.totalEarnings.toFixed(4)} STX\n`;
+        message += `   📊 ROI: ${opp.roi.toFixed(2)}%\n\n`;
+      });
+
+      message += `<b>Commands:</b>\n`;
+      message += `/invest [botId] [amount] - Invest in a bot\n`;
+      message += `/bot_stats [botId] - See detailed stats\n`;
+      message += `/my_investments - Your portfolio`;
+
+      await this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'HTML' });
+
+    } catch (error) {
+      await this.bot.sendMessage(
+        msg.chat.id,
+        `❌ Error loading opportunities: ${error.message}`
+      );
+    }
   }
 }
 

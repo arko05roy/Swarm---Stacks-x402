@@ -13,6 +13,9 @@
   }
 )
 
+;; Contract owner (deployer)
+(define-constant CONTRACT-OWNER tx-sender)
+
 ;; Error codes
 (define-constant ERR-NOT-AUTHORIZED (err u100))
 (define-constant ERR-PAYMENT-NOT-FOUND (err u101))
@@ -42,7 +45,7 @@
   )
 )
 
-;; Release payment to recipient (only payer can release)
+;; Release payment to recipient (payer or contract owner can release)
 (define-public (release-payment (task-id (string-ascii 64)))
   (let
     (
@@ -52,8 +55,8 @@
       (recipient (get recipient payment-data))
       (locked (get locked payment-data))
     )
-    ;; Verify caller is the payer
-    (asserts! (is-eq tx-sender payer) ERR-NOT-AUTHORIZED)
+    ;; Verify caller is the payer OR contract owner (for automated releases)
+    (asserts! (or (is-eq tx-sender payer) (is-eq tx-sender CONTRACT-OWNER)) ERR-NOT-AUTHORIZED)
 
     ;; Verify payment is still locked
     (asserts! locked ERR-ALREADY-RELEASED)

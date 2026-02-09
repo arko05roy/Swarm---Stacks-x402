@@ -123,7 +123,7 @@
   )
 )
 
-;; Withdraw STX from pool
+;; Withdraw STX from pool (principal only)
 (define-public (withdraw (amount uint))
   (let
     (
@@ -147,6 +147,33 @@
       )
     )
     (ok true)
+  )
+)
+
+;; Claim earnings (separate from principal withdrawal)
+(define-public (claim-earnings)
+  (let
+    (
+      (claimer tx-sender)
+      (lp-data (unwrap! (map-get? liquidity-providers claimer) ERR-INSUFFICIENT-BALANCE))
+      (lp-balance (get balance lp-data))
+      (total-liq (var-get total-liquidity))
+      (total-profit (var-get total-profit-earned))
+      ;; Calculate this LP's share of total profit based on their proportion of liquidity
+      (earnings-share (if (> total-liq u0)
+                          (/ (* total-profit lp-balance) total-liq)
+                          u0))
+    )
+    (asserts! (> earnings-share u0) ERR-INVALID-AMOUNT)
+    ;; Transfer earnings from contract to claimer
+    (try! (as-contract (stx-transfer? earnings-share tx-sender claimer)))
+    ;; Update LP record - reset total-earned after claim
+    (map-set liquidity-providers claimer
+      { balance: lp-balance, deposited-at: (get deposited-at lp-data), total-earned: u0 }
+    )
+    ;; Reduce total-profit-earned by claimed amount
+    (var-set total-profit-earned (- total-profit earnings-share))
+    (ok earnings-share)
   )
 )
 
@@ -184,6 +211,29 @@
   )
 )
 
+;; Helper function to distribute earnings to a single LP
+(define-private (distribute-to-lp (lp-entry {provider: principal, data: {balance: uint, deposited-at: uint, total-earned: uint}}) (context {profit-share: uint, total-liq: uint}))
+  (let
+    (
+      (lp-principal (get provider lp-entry))
+      (lp-data (get data lp-entry))
+      (lp-balance (get balance lp-data))
+      (share (if (> (get total-liq context) u0)
+                 (/ (* (get profit-share context) lp-balance) (get total-liq context))
+                 u0))
+    )
+    ;; Update LP's total-earned
+    (map-set liquidity-providers lp-principal
+      {
+        balance: lp-balance,
+        deposited-at: (get deposited-at lp-data),
+        total-earned: (+ (get total-earned lp-data) share)
+      }
+    )
+    context
+  )
+)
+
 ;; Repay loan with profit sharing (10%)
 (define-public (repay (loan-id uint) (profit uint))
   (let
@@ -193,6 +243,7 @@
       (loan-amount (get amount loan))
       (profit-share (/ (* profit PROFIT-SHARE-PERCENT) u100))
       (repay-amount (+ loan-amount profit-share))
+      (current-liquidity (var-get total-liquidity))
     )
     (asserts! (is-eq (get borrower loan) repayer) ERR-NOT-AUTHORIZED)
     ;; Transfer repayment from borrower to contract
@@ -201,6 +252,13 @@
     (var-set total-borrowed (- (var-get total-borrowed) loan-amount))
     (var-set total-profit-earned (+ (var-get total-profit-earned) profit-share))
     (var-set total-liquidity (+ (var-get total-liquidity) profit-share))
+
+    ;; NOTE: Distribution to individual LPs cannot be done in a loop in Clarity
+    ;; This would require either:
+    ;; 1. A separate claim-earnings function where each LP claims their share
+    ;; 2. Off-chain calculation with on-chain verification
+    ;; For now, profit is added to pool and LPs can withdraw proportionally
+
     ;; Delete loan
     (map-delete active-loans loan-id)
     ;; Update reputation
@@ -227,8 +285,14 @@
     (
       (loan (unwrap! (map-get? active-loans loan-id) ERR-LOAN-NOT-FOUND))
       (defaulter (get borrower loan))
+      (loan-amount (get amount loan))
     )
     (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+
+    ;; CRITICAL FIX: Decrement total-borrowed when loan defaults
+    ;; This frees up the locked liquidity so LPs can withdraw
+    (var-set total-borrowed (- (var-get total-borrowed) loan-amount))
+
     ;; Update reputation
     (match (map-get? agent-reputation defaulter)
       rep-data

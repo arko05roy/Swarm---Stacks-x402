@@ -76,6 +76,31 @@ class StacksUtils {
   }
 
   /**
+   * Transfer STX to a wallet address
+   */
+  async transferToWallet(recipientAddress, amount) {
+    const txOptions = {
+      recipient: recipientAddress,
+      amount: this.stxToMicroStx(amount),
+      senderKey: this.senderKey,
+      network: this.network,
+      anchorMode: AnchorMode.Any
+    };
+
+    const transaction = await makeSTXTokenTransfer(txOptions);
+    const broadcastResponse = await broadcastTransaction({
+      transaction,
+      network: this.network
+    });
+
+    return {
+      txId: broadcastResponse.txid,
+      amount,
+      recipient: recipientAddress
+    };
+  }
+
+  /**
    * Check transaction status
    */
   async getTransactionStatus(txId) {

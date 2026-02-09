@@ -62,6 +62,11 @@ class MainBot {
       this.handleMyBots(msg);
     });
 
+    // Withdraw bot earnings command
+    this.bot.onText(/\/withdraw_earnings ([^\s]+)/, (msg, match) => {
+      this.handleWithdrawEarnings(msg, match[1]);
+    });
+
     // Cancel bot creation
     this.bot.onText(/\/cancel/, (msg) => {
       const response = this.botCreation.cancelSession(msg.from.id);
@@ -141,6 +146,14 @@ class MainBot {
 /create_bot - Quick template creation 🎨
 /my_agents - Your agents + analytics 📊
 /browse_store - Agent marketplace 🏪
+
+<b>Bot Investment:</b>
+/top_investments - Best opportunities 📈
+/invest [botId] [amt] - Invest in bot 💰
+/my_investments - Your portfolio 💼
+/withdraw_all [botId] - Withdraw everything 💸
+/bot_stats [botId] - Bot performance 📊
+/withdraw_earnings [botId] - Withdraw bot creator earnings 💰
 
 <b>DeFi Pool:</b>
 /pool - Liquidity pool overview 💰
@@ -229,17 +242,113 @@ class MainBot {
     let message = '🤖 <b>Your Bots</b>\n\n';
 
     userBots.forEach((bot, index) => {
-      message += `<b>${index + 1}. ${bot.name}</b>\n`;
+      const earnings = db.leaderboard.get(bot.id) || 0;
+      message += `<b>${index + 1}. ${bot.name}</b> (ID: ${bot.id})\n`;
       message += `💰 Price: ${bot.pricePerCall} STX/call\n`;
-      message += `📊 Earned: ${(bot.totalEarnings || 0).toFixed(4)} STX\n`;
+      message += `📊 Earned: ${earnings.toFixed(4)} STX\n`;
       message += `✅ Tasks: ${bot.tasksCompleted || 0}\n`;
-      message += `🎯 Capabilities: ${bot.capabilities.join(', ')}\n\n`;
+      message += `🎯 Capabilities: ${bot.capabilities.join(', ')}\n`;
+      if (earnings > 0) {
+        message += `💸 <code>/withdraw_earnings ${bot.id}</code>\n`;
+      }
+      message += `\n`;
     });
 
-    const totalEarnings = userBots.reduce((sum, bot) => sum + (bot.totalEarnings || 0), 0);
-    message += `💰 <b>Total Earnings:</b> ${totalEarnings.toFixed(4)} STX`;
+    const totalEarnings = userBots.reduce((sum, bot) => sum + (db.leaderboard.get(bot.id) || 0), 0);
+    message += `💰 <b>Total Earnings:</b> ${totalEarnings.toFixed(4)} STX\n\n`;
+    message += `<b>To withdraw:</b> /withdraw_earnings [botId]`;
 
     this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'HTML' });
+  }
+
+  async handleWithdrawEarnings(msg, botId) {
+    const userId = msg.from.id;
+
+    // Verify bot exists and belongs to user
+    const bot = db.getBot(botId);
+    if (!bot) {
+      this.bot.sendMessage(msg.chat.id, '❌ Bot not found. Use /my_bots to see your bots.');
+      return;
+    }
+
+    if (bot.createdBy !== userId) {
+      this.bot.sendMessage(msg.chat.id, '❌ You can only withdraw earnings from your own bots.');
+      return;
+    }
+
+    // Get earnings from leaderboard
+    const earnings = db.leaderboard.get(botId) || 0;
+    if (earnings === 0) {
+      this.bot.sendMessage(msg.chat.id, `💰 No earnings to withdraw for ${bot.name}.\n\nYour bot hasn't earned anything yet.`);
+      return;
+    }
+
+    const thinkingMsg = await this.bot.sendMessage(
+      msg.chat.id,
+      `💸 Withdrawing ${earnings.toFixed(4)} STX earnings...`
+    );
+
+    try {
+      // Get creator's wallet address
+      const creatorWallet = this.walletService.getWallet(userId);
+      if (!creatorWallet) {
+        await this.bot.editMessageText(
+          '❌ No wallet found. Use /start to create a wallet first.',
+          { chat_id: msg.chat.id, message_id: thinkingMsg.message_id }
+        );
+        return;
+      }
+
+      // Transfer STX to creator's wallet
+      const txOptions = {
+        recipient: creatorWallet.address,
+        amount: this.stacksUtils.stxToMicroStx(earnings),
+        senderKey: this.stacksUtils.senderKey,
+        network: this.stacksUtils.network,
+        anchorMode: require('@stacks/transactions').AnchorMode.Any
+      };
+
+      const { makeSTXTokenTransfer, broadcastTransaction } = require('@stacks/transactions');
+      const transaction = await makeSTXTokenTransfer(txOptions);
+      const broadcastResponse = await broadcastTransaction({
+        transaction,
+        network: this.stacksUtils.network
+      });
+
+      // Reset leaderboard after successful transfer
+      db.leaderboard.set(botId, 0);
+      db.saveNow();
+
+      Logger.success('Bot earnings withdrawn', {
+        botId,
+        userId,
+        amount: earnings,
+        txId: broadcastResponse.txid
+      });
+
+      const explorerLink = `https://explorer.hiro.so/txid/${broadcastResponse.txid}?chain=testnet`;
+      await this.bot.editMessageText(
+        `✅ Withdrawal successful!\n\n` +
+        `Bot: <b>${bot.name}</b>\n` +
+        `Amount: ${earnings.toFixed(4)} STX\n` +
+        `Wallet: <code>${creatorWallet.address}</code>\n\n` +
+        `Transaction: <a href="${explorerLink}">${broadcastResponse.txid.slice(0, 16)}...</a>\n\n` +
+        `🎉 Funds sent to your wallet!`,
+        {
+          chat_id: msg.chat.id,
+          message_id: thinkingMsg.message_id,
+          parse_mode: 'HTML',
+          disable_web_page_preview: true
+        }
+      );
+
+    } catch (error) {
+      Logger.error('Withdrawal failed', { error: error.message });
+      await this.bot.editMessageText(
+        `❌ Withdrawal failed: ${error.message}\n\nPlease try again later.`,
+        { chat_id: msg.chat.id, message_id: thinkingMsg.message_id }
+      );
+    }
   }
 
   handleHelp(msg) {
@@ -255,6 +364,14 @@ class MainBot {
 /search [query] - Search agents 🔍
 /bots - All available bots 🤖
 /leaderboard - Top earners 🏆
+
+<b>Bot Investment (NEW!):</b>
+/top_investments - Best investment opportunities 📈
+/invest [botId] [amount] - Invest in bot 💰
+/my_investments - Your portfolio 💼
+/withdraw_investment [botId] [amt] - Partial withdrawal 💸
+/withdraw_all [botId] - Withdraw everything 💰
+/bot_stats [botId] - Bot performance stats 📊
 
 <b>Liquidity Pool (DeFi):</b>
 /pool - Pool overview + your position 💰
@@ -466,8 +583,8 @@ Agents are hired automatically via AI orchestrator.
             { chat_id: chatId, message_id: messageId }
           ).catch(() => {});
 
-          // Lock and immediately release escrow in background
-          this.processPayment(taskId, task).catch(err => {
+          // Lock and immediately release escrow in background, then notify with tx hash
+          this.processPayment(taskId, task, chatId).catch(err => {
             Logger.error('Background payment failed', { taskId, error: err.message });
           });
 
@@ -504,7 +621,7 @@ Agents are hired automatically via AI orchestrator.
   /**
    * Process blockchain payment in background (don't block user response)
    */
-  async processPayment(taskId, task) {
+  async processPayment(taskId, task, chatId) {
     try {
       // Lock payment in escrow
       const escrowTx = await this.stacksUtils.sendToEscrow(
@@ -524,8 +641,26 @@ Agents are hired automatically via AI orchestrator.
       const releaseTx = await this.stacksUtils.releaseEscrow(taskId);
       Logger.success('Escrow released', { taskId, txId: releaseTx });
       db.releaseEscrow(taskId);
+
+      // Notify user with tx hashes
+      if (chatId) {
+        const explorerBase = 'https://explorer.hiro.so/txid';
+        this.bot.sendMessage(chatId,
+          `🔗 <b>Payment confirmed on-chain</b>\n\n` +
+          `Bot: ${task.bot.name}\n` +
+          `Amount: ${task.bot.pricePerCall} STX\n\n` +
+          `Escrow Lock: <a href="${explorerBase}/${escrowTx.txId}?chain=testnet">${escrowTx.txId.slice(0, 12)}...</a>\n` +
+          `Escrow Release: <a href="${explorerBase}/${releaseTx}?chain=testnet">${releaseTx.slice(0, 12)}...</a>`,
+          { parse_mode: 'HTML', disable_web_page_preview: true }
+        ).catch(() => {});
+      }
     } catch (error) {
       Logger.error('Payment processing error', { taskId, error: error.message });
+      if (chatId) {
+        this.bot.sendMessage(chatId,
+          `⚠️ Payment processing failed for ${task.bot.name}: ${error.message}`,
+        ).catch(() => {});
+      }
     }
   }
 
