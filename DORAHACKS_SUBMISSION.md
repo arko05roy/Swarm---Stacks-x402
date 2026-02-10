@@ -1,6 +1,6 @@
 # SWARM — DoraHacks Submission
 
-## SWARM — "Where AI Agents Work for Money, Not Prompts"
+## SWARM — "Wall Street for AI Agents"
 
 ---
 
@@ -14,11 +14,11 @@ Swarm is an AI economy where agents borrow from DeFi pools, get hired by other A
 
 ## Full Description
 
-SWARM is an autonomous AI agent economy built on Stacks blockchain where agents earn, borrow, attract investors, and operate as independent economic entities. The entire system runs inside Telegram with two Clarity v2 smart contracts powering every transaction.
+SWARM is an autonomous x402 enabled AI agent economy built on Stacks blockchain where agents earn, borrow, attract investors, and operate as independent economic entities. The entire system runs inside Telegram with Clarity v2 smart contracts powering every transaction.
 
 ### The x402 Agentic Economy
 
-This is a working implementation of the x402 standard — AI agents that earn cryptocurrency for their work. Every agent in Swarm operates as an autonomous economic unit with its own wallet, reputation score, investor base, and borrowing capacity.
+Every agent in Swarm operates as an autonomous economic unit with its own wallet, reputation score, investor base, and borrowing capacity.
 
 When a user asks a question, an AI orchestrator analyzes the query and automatically hires the best agent for the job. Payment locks in a smart contract escrow before work begins. The agent completes the task. The contract releases payment to the agent's creator wallet. All automatic. All on-chain. All verifiable.
 
@@ -42,11 +42,11 @@ Every agent created through the SDK is automatically x402-compatible — it can 
 
 Zero setup friction. No browser extensions. No seed phrase ceremonies.
 
-First time you message [@Swarmv1bot](https://t.me/Swarmv1bot), the system auto-generates a Stacks wallet for you. BIP-39 mnemonic, BIP-44 derivation path, fully compatible with Leather and Hiro wallet. Encrypted with AES-256. Your address appears immediately.
+First time you message [@Swarmv1bot], the system auto-generates a Stacks wallet for you. BIP-39 mnemonic, BIP-44 derivation path, fully compatible with Leather and Hiro wallet. Encrypted with AES-256. Your address appears immediately.
 
 Want to export? `/backup` command gives you the 24-word recovery phrase. Import it into any Stacks-compatible wallet — instant access to your funds.
 
-Create agents, hire agents, invest in agents, borrow from the pool — everything happens directly in Telegram. Blockchain complexity hidden. Crypto benefits exposed.
+Create agents, hire agents, invest in agents, borrow from the pool — everything happens directly in Telegram.
 
 ### Autonomous Borrowing from On-Chain Liquidity Pool
 
@@ -61,7 +61,7 @@ Borrowing is reputation-gated. The Clarity contract tracks every agent's complet
 
 ### Smart Contract Escrow — Every Payment On-Chain
 
-This is the foundation of the x402 mechanism. Every single agent payment goes through a Clarity v2 escrow smart contract.
+Every single agent payment goes through a Clarity v2 escrow smart contract.
 
 Agent gets hired → payment locks in contract before work begins → agent completes task → contract releases payment to creator wallet. Agent fails or times out → automatic full refund to user. No manual intervention. No disputes.
 
@@ -86,9 +86,9 @@ Withdrawals are real blockchain transfers. STX moves from agent earnings balance
 
 No manual agent selection. No hardcoded routing.
 
-Every user query goes to Google Gemini 2.5 Flash. Gemini analyzes the query, scans the full agent registry (system agents + all user-created agents), and picks the best agent for the job. It reads agent descriptions, capabilities, success rates, and availability, then makes a decision in under 2 seconds.
+Every user query goes to a Orchestrator Agent which analyzes the query, scans the full agent registry (system agents + all user-created agents), and picks the best agent for the job. It reads agent descriptions, capabilities, success rates, and availability, then makes a decision in under 2 seconds.
 
-Multi-agent queries work automatically. "What's the Bitcoin price and weather in Tokyo?" — Gemini decomposes into two sub-tasks, hires two agents in parallel, locks two escrow payments, waits for both results, delivers both answers in one response. Two agents paid. Two blockchain transactions. All automatic.
+Multi-agent queries work automatically. "What's the Bitcoin price and weather in Tokyo?" — Orchestrator decomposes into two sub-tasks, hires two agents in parallel, locks two escrow payments, waits for both results, delivers both answers in one response. Two agents paid. Two blockchain transactions. All automatic.
 
 User-created agents compete on equal footing with system agents. Created a new agent 5 minutes ago? If it's the best fit, Gemini hires it. Pure merit-based selection.
 
@@ -102,7 +102,7 @@ User-created agents compete on equal footing with system agents. Created a new a
 | **Smart Contracts** | 2 Clarity v2 contracts on Stacks testnet |
 | **Escrow** | `ST2Q9TEZVYPTJ1Q2H5H2G9QREV21KS90YQ0SZH113.agent-escrow-v3` |
 | **Liquidity Pool** | `ST2Q9TEZVYPTJ1Q2H5H2G9QREV21KS90YQ0SZH113.agent-liquidity-pool-v2` |
-| **AI Routing** | Google Gemini 2.5 Flash |
+| **AI Routing** | Google Gemini 3 |
 | **Wallet Generation** | BIP-39/BIP-44 Stacks-compatible wallets |
 | **SDK** | 4 creation methods, 7 templates, production APIs |
 
@@ -110,11 +110,8 @@ User-created agents compete on equal footing with system agents. Created a new a
 
 ## Links
 
-- **Live Bot:** [@Swarmv1bot](https://t.me/Swarmv1bot)
-- **GitHub:** [github.com/ArkTrek/swarm](https://github.com/ArkTrek/swarm)
+
 - **Escrow Contract:** [View on Explorer](https://explorer.hiro.so/txid/afd7b24b3bf6bdd008e03c3623c79a35ac13d221961a9896aa98a1e94cdc3c48?chain=testnet)
 - **Liquidity Pool Contract:** [View on Explorer](https://explorer.hiro.so/txid/2bb195387888954ead03858267b8ff3ca531ba60ad5c770228fb021948dd2508?chain=testnet)
 
 ---
-
-**x402 Stacks Challenge | Feb 9–16, 2026**
