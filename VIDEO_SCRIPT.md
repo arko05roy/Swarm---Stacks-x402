@@ -62,7 +62,7 @@ How it works:
 
 ---
 
-### SCENE 2: Create an Agent — SDK with 4 Methods (30 sec)
+### SCENE 2: Create an Agent with the SDK (30 sec)
 
 **On Account A (Creator):**
 
@@ -74,16 +74,9 @@ How it works:
 Choose creation method:
 
 1️⃣ Quick Start (templates)
-   Fast setup with pre-built agents
-
 2️⃣ API Wrapper (any REST API)
-   Turn any public API into an agent
-
 3️⃣ Code Your Own (advanced)
-   Write custom execution logic
-
 4️⃣ Compose Agents (chain existing)
-   Create workflows by chaining agents
 
 Reply with number (1-4):
 ```
@@ -164,68 +157,7 @@ It will be hired automatically when users ask relevant questions.
 
 ---
 
-### SCENE 3: Show the Other SDK Methods (15 sec)
-
-**Still on Account A — show the other methods quickly:**
-
-1. **Type:** `/create_agent`
-2. **Type:** `2` (API Wrapper)
-3. **Bot responds:**
-```
-🔧 API Wrapper
-
-Turn any public REST API into a paid agent.
-
-Step 1: Enter the API endpoint URL
-
-Example: https://api.github.com/repos/{owner}/{repo}
-
-Note: Use {placeholders} for dynamic values
-Your endpoint:
-```
-
-**PAUSE — show that ANY REST API can become a paid agent.**
-
-4. **Type:** `/cancel` (or `/create_agent` again)
-5. **Type:** `3` (Code Your Own)
-6. **Bot responds:**
-```
-💻 Code Your Own Agent
-
-For advanced users who want full control.
-
-This requires JavaScript knowledge. You'll define:
-• Agent name
-• Execution function
-• Pricing
-```
-
-**PAUSE — show that developers can write custom JS execution logic.**
-
-7. **Type:** `/create_agent`
-8. **Type:** `4` (Compose Agents)
-9. **Bot responds:**
-```
-🔗 Compose Agents
-
-Build workflows by chaining existing agents.
-
-Available agents:
-1. Crypto Price Oracle - Real-time crypto prices
-2. Weather Reporter - Current weather conditions
-3. Bitcoin Price Bot - Real-time bitcoin price from CoinGecko
-...
-
-Reply with agent numbers to chain (e.g., "1,3,5"):
-```
-
-**PAUSE — show that you can chain agents into workflows. Agent 1's output feeds into Agent 2 via $prev variable.**
-
-**Voiceover idea:** "Templates for beginners. API wrapper for any REST endpoint. Custom JavaScript for developers. Compose to chain agents into pipelines. Four ways to build, one marketplace."
-
----
-
-### SCENE 4: Agent Gets Hired + Escrow Payment (20 sec)
+### SCENE 3: Agent Gets Hired + Escrow Payment (20 sec)
 
 **Switch to Account B (User):**
 
@@ -278,7 +210,7 @@ Escrow Release: afd7b24b3b...  ← CLICKABLE LINK TO EXPLORER
 
 ---
 
-### SCENE 5: Multi-Agent Query (10 sec)
+### SCENE 4: Multi-Agent Query (10 sec)
 
 **Still on Account B:**
 
@@ -311,7 +243,7 @@ Then two separate payment confirmation messages with blockchain links.
 
 ---
 
-### SCENE 6: Creator Checks Earnings + Withdraws (15 sec)
+### SCENE 5: Creator Checks Earnings + Withdraws (15 sec)
 
 **Switch back to Account A (Creator):**
 
@@ -354,7 +286,7 @@ Transaction: 9f3a21b8c5...  ← CLICKABLE EXPLORER LINK
 
 ---
 
-### SCENE 7: Investment System (20 sec)
+### SCENE 6: Investment System (20 sec)
 
 **On Account A or Account C (Investor):**
 
@@ -404,7 +336,7 @@ Total ROI: 0.00%
 
 ---
 
-### SCENE 8: Liquidity Pool (15 sec)
+### SCENE 7: Liquidity Pool (15 sec)
 
 **On any account:**
 
@@ -480,7 +412,7 @@ Utilization: 78%
 
 ---
 
-### SCENE 9: Show the Smart Contracts (10 sec)
+### SCENE 8: Show the Smart Contracts (10 sec)
 
 **In browser:**
 
@@ -493,7 +425,7 @@ Utilization: 78%
 
 ---
 
-### SCENE 10: Closing (5 sec)
+### SCENE 9: Closing (5 sec)
 
 **Show Telegram with @Swarmv1bot open.**
 
@@ -507,20 +439,19 @@ Utilization: 78%
 | Scene | Duration | What's Shown |
 |-------|----------|-------------|
 | 1. Wallet generation | 15s | `/start` → instant wallet |
-| 2. Agent creation (templates) | 30s | 4 methods, 7 templates, full creation flow |
-| 3. SDK methods showcase | 15s | API Wrapper, Code Your Own, Compose |
-| 4. Agent hired + escrow | 20s | Query → orchestrator → escrow lock → result → escrow release → Explorer |
-| 5. Multi-agent query | 10s | One query → two agents → two payments |
-| 6. Earnings withdrawal | 15s | `/my_bots` → earnings → withdraw → blockchain tx |
-| 7. Investment system | 20s | Invest → ownership → portfolio → ROI tracking |
-| 8. Liquidity pool | 15s | Pool stats → deposit → detailed analytics |
-| 9. Smart contracts | 10s | Explorer showing both deployed contracts |
-| 10. Closing | 5s | CTA |
-| **TOTAL** | **~2:35** | |
+| 2. Agent creation (SDK) | 30s | 4 methods, 7 templates, full creation flow |
+| 3. Agent hired + escrow | 20s | Query → orchestrator → escrow lock → result → escrow release → Explorer |
+| 4. Multi-agent query | 10s | One query → two agents → two payments |
+| 5. Earnings withdrawal | 15s | `/my_bots` → earnings → withdraw → blockchain tx |
+| 6. Investment system | 20s | Invest → ownership → portfolio → ROI tracking |
+| 7. Liquidity pool | 15s | Pool stats → deposit → detailed analytics |
+| 8. Smart contracts | 10s | Explorer showing both deployed contracts |
+| 9. Closing | 5s | CTA |
+| **TOTAL** | **~2:20** | |
 
-If you need to cut to 90 seconds: Remove scenes 3, 5, 9. Shorten scene 7 to just invest + portfolio (skip `/top_investments`). Shorten scene 8 to just `/pool` (skip `/deposit` and `/pool_stats`).
+If you need to cut to 90 seconds: Remove scenes 4, 8. Shorten scene 6 to just invest + portfolio (skip `/top_investments`). Shorten scene 7 to just `/pool` (skip `/deposit` and `/pool_stats`).
 
-If you need to cut to 60 seconds: Only scenes 1, 2, 4, 6, 10. This covers wallet → create → hire → earn → withdraw. The core loop.
+If you need to cut to 60 seconds: Only scenes 1, 2, 3, 5, 9. This covers wallet → create → hire → earn → withdraw. The core loop.
 
 ---
 
@@ -540,9 +471,7 @@ If you need to cut to 60 seconds: Only scenes 1, 2, 4, 6, 10. This covers wallet
 ```
 One command. Instant Stacks wallet. No extension, no seed phrase.
 
-Four creation methods. Templates for anyone — 7 agents backed by real APIs. API wrapper for any REST endpoint. Custom JavaScript for developers. Compose to chain agents into pipelines with variable passing.
-
-My agent is live in the marketplace in 30 seconds.
+Four creation methods. Seven templates. Each one backed by a real API — CoinGecko, DeFiLlama, wttr.in. My agent is live in the marketplace in 30 seconds.
 
 Someone asks a question. Gemini AI routes it to my agent. Escrow locks the payment on-chain. Agent delivers the result. Payment releases. Both transactions are on the blockchain — click the link, verify on Explorer.
 
@@ -559,13 +488,13 @@ Two Clarity v2 smart contracts. Escrow for payments. Liquidity pool for agent le
 SWARM. Try it now. @Swarmv1bot.
 ```
 
-Word count: ~195 words at ~90 words/min = ~2:10.
+Word count: ~185 words at ~90 words/min = ~2 minutes.
 
 For 60-second version, cut to:
 ```
 One command. Instant wallet. No setup.
 
-Four creation methods. Seven templates backed by real APIs. API wrapper, custom code, compose pipelines. My agent is live in 30 seconds.
+Four creation methods. Seven templates backed by real APIs. My agent is live in 30 seconds.
 
 Someone asks "What's the Bitcoin price?" Gemini routes it to my agent. Escrow locks payment on-chain. Agent delivers. Payment releases. Click the link — it's on the blockchain.
 
@@ -576,4 +505,4 @@ Invest in agents. Own 30%. Earn revenue share. Deposit to the pool. Agents borro
 Two Clarity v2 contracts on Stacks testnet. SWARM. @Swarmv1bot.
 ```
 
-Word count: ~95 words = ~60 seconds.
+Word count: ~90 words = ~60 seconds.

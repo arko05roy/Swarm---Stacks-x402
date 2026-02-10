@@ -90,10 +90,11 @@ class MainBot {
       this.handleWithdrawEarnings(msg, match[1]);
     });
 
-    // Cancel bot creation
+    // Cancel bot creation and enhanced sessions
     this.bot.onText(/\/cancel/, (msg) => {
+      this.enhanced.cancelSession(msg.from.id);
       const response = this.botCreation.cancelSession(msg.from.id);
-      this.bot.sendMessage(msg.chat.id, response);
+      this.bot.sendMessage(msg.chat.id, response || '✅ Any active sessions have been cancelled.');
     });
 
     // Help command
@@ -144,6 +145,10 @@ class MainBot {
 
   async handleStart(msg) {
     const userId = msg.from.id;
+
+    // Clear any existing sessions to prevent state conflicts
+    this.enhanced.cancelSession(userId);
+    this.botCreation.cancelSession(userId);
 
     // Auto-generate wallet if user doesn't have one
     const wallet = await this.walletService.generateWallet(userId);
@@ -497,7 +502,37 @@ Agents are hired automatically via AI orchestrator.
     );
 
     try {
-      const availableBots = db.getAllBots();
+      // Combine DB bots with SDK agents for a complete marketplace
+      const dbBots = db.getAllBots();
+      const sdkAgents = require('../core/AgentRegistry').registry.list({ activeOnly: true });
+
+      // Convert SDK agents to bot format for orchestrator (with validation)
+      const sdkBotsFormatted = sdkAgents
+        .filter(agent => agent && agent.manifest) // Validate structure
+        .map(agent => ({
+          id: agent.manifest.id,
+          name: agent.manifest.name || 'Unknown Agent',
+          description: agent.manifest.description || '',
+          capabilities: agent.manifest.capabilities || [],
+          pricePerCall: agent.manifest.pricing?.pricePerCall || 0.001,
+          isSDKAgent: true // Flag to identify SDK agents
+        }));
+
+      // Filter DB bots to only include those with valid wallet addresses
+      // This excludes demo seeded bots with fake addresses while keeping real user-created bots
+      const validDbBots = dbBots.filter(bot => {
+        // Keep bots that have valid Stacks addresses (start with ST or SP and are proper length)
+        const addr = bot.walletAddress || '';
+        return addr.match(/^S[TP][0-9A-Z]{38,41}$/);
+      });
+
+      Logger.info('Bot filtering', {
+        sdkAgents: sdkBotsFormatted.length,
+        totalDbBots: dbBots.length,
+        validDbBots: validDbBots.length
+      });
+
+      const availableBots = [...sdkBotsFormatted, ...validDbBots];
 
       if (availableBots.length === 0) {
         this.bot.editMessageText(
@@ -507,7 +542,7 @@ Agents are hired automatically via AI orchestrator.
         return;
       }
 
-      Logger.info('Orchestrator routing via Gemini AI...', { query: userQuery, botCount: availableBots.length });
+      Logger.info('Orchestrator routing via Gemini AI...', { query: userQuery, botCount: availableBots.length, sdkAgents: sdkBotsFormatted.length, dbBots: dbBots.length });
 
       // Route with 15s timeout
       const routingPlan = await Promise.race([
@@ -536,7 +571,8 @@ Agents are hired automatically via AI orchestrator.
           capability: bot.capabilities[0],
           bot: bot,
           data: plan.params,
-          reasoning: plan.reasoning
+          reasoning: plan.reasoning,
+          isSDKAgent: bot.isSDKAgent || false
         };
       }).filter(t => t !== null);
 
@@ -568,9 +604,11 @@ Agents are hired automatically via AI orchestrator.
     // Show which bots we're hiring
     let statusMsg = '🐝 <b>Hiring bots:</b>\n\n';
     tasks.forEach((task, i) => {
-      statusMsg += `${i + 1}. ${task.bot.name} - ${task.bot.pricePerCall} STX\n`;
+      const botName = task.bot?.name || 'Unknown Bot';
+      const botPrice = task.bot?.pricePerCall || 0;
+      statusMsg += `${i + 1}. ${botName} - ${botPrice} STX\n`;
     });
-    statusMsg += `\n💰 Total: ${tasks.reduce((sum, t) => sum + t.bot.pricePerCall, 0)} STX`;
+    statusMsg += `\n💰 Total: ${tasks.reduce((sum, t) => sum + (t.bot?.pricePerCall || 0), 0)} STX`;
 
     this.bot.editMessageText(statusMsg, {
       chat_id: chatId,
@@ -608,8 +646,28 @@ Agents are hired automatically via AI orchestrator.
           { chat_id: chatId, message_id: messageId }
         ).catch(() => {});
 
-        Logger.info('Executing task', { botId: task.bot.id, taskId, data: task.data });
-        const result = await BotRegistry.executeTask(task.bot.id, task.data);
+        Logger.info('Executing task', { botId: task.bot.id, taskId, data: task.data, isSDK: task.isSDKAgent });
+
+        // Execute SDK agents through registry, DB bots through BotRegistry
+        let result;
+        if (task.isSDKAgent) {
+          const { registry } = require('../core/AgentRegistry');
+          const agent = registry.get(task.bot.id);
+          if (!agent) {
+            result = { success: false, error: 'SDK agent not found' };
+          } else {
+            const sdkResult = await agent.execute(task.data);
+            result = {
+              success: sdkResult.success,
+              result: sdkResult.data,
+              error: sdkResult.error,
+              botId: task.bot.id
+            };
+          }
+        } else {
+          result = await BotRegistry.executeTask(task.bot.id, task.data);
+        }
+
         Logger.info('Task result', { botId: task.bot.id, success: result.success, error: result.error });
 
         if (result.success) {
@@ -619,10 +677,14 @@ Agents are hired automatically via AI orchestrator.
             { chat_id: chatId, message_id: messageId }
           ).catch(() => {});
 
-          // Lock and immediately release escrow in background, then notify with tx hash
-          this.processPayment(taskId, task, chatId).catch(err => {
-            Logger.error('Background payment failed', { taskId, error: err.message });
-          });
+          // Only process on-chain payment for DB bots (not SDK system agents)
+          if (!task.isSDKAgent && task.bot.walletAddress) {
+            this.processPayment(taskId, task, chatId).catch(err => {
+              Logger.error('Background payment failed', { taskId, error: err.message });
+            });
+          } else if (task.isSDKAgent) {
+            Logger.info('Skipping on-chain payment for SDK system agent', { botId: task.bot.id });
+          }
 
           // Update leaderboard immediately (in-memory)
           db.addEarnings(task.bot.id, task.bot.pricePerCall);
@@ -659,6 +721,12 @@ Agents are hired automatically via AI orchestrator.
    */
   async processPayment(taskId, task, chatId) {
     try {
+      // Validate wallet address exists
+      if (!task.bot.walletAddress) {
+        Logger.warn('Bot has no wallet address, skipping payment', { botId: task.bot.id });
+        return;
+      }
+
       // Lock payment in escrow
       const escrowTx = await this.stacksUtils.sendToEscrow(
         task.bot.pricePerCall,
