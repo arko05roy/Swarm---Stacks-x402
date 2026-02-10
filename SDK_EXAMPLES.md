@@ -79,22 +79,17 @@ const defiLlamaAgent = createAgent.apiWrapper({
   },
   
   // Transform API response
-  transform: (data) => ({
-    name: data.name,
-    symbol: data.symbol,
-    tvl: data.tvl,
-    tvlFormatted: `$${(data.tvl / 1e9).toFixed(2)}B`,
-    chain: data.chain,
-    category: data.category,
-    description: data.description,
-    website: data.url
-  })
+  transform: (data) => {
+    // Your data transformation goes here
+    // (parse the API response, format numbers, etc.)
+    return {}; // return the good stuff
+  }
 });
 
 registry.register(defiLlamaAgent, 'your_user_id');
 
 // Usage
-const result = await defiLlamaAgent.execute({ protocol: 'aave' });
+const result = await defiLlamaAgent.execute({ protocol: 'aave' }); // magic happens
 ```
 
 ### Example 2: Stacks Block Data
@@ -118,13 +113,10 @@ const stacksBlockAgent = createAgent.apiWrapper({
     }
   },
   
-  transform: (data) => ({
-    height: data.height,
-    hash: data.hash,
-    timestamp: new Date(data.burn_block_time * 1000).toISOString(),
-    txCount: data.txs.length,
-    minerTxId: data.miner_txid
-  })
+  transform: (data) => {
+    // Your blockchain data parsing goes here
+    return {}; // blocks and hashes and stuff
+  }
 });
 
 registry.register(stacksBlockAgent, 'your_user_id');
@@ -145,15 +137,11 @@ const trendingAgent = createAgent.apiWrapper({
     'User-Agent': 'SwarmBot/1.0'
   },
   
-  transform: (data) => ({
-    trending: data.coins.slice(0, 10).map(item => ({
-      name: item.item.name,
-      symbol: item.item.symbol,
-      rank: item.item.market_cap_rank,
-      score: item.item.score
-    })),
-    timestamp: Date.now()
-  })
+  transform: (data) => {
+    // Your trending coin logic goes here
+    // (map, filter, sort - you know the drill)
+    return {}; // the hot coins of the day
+  }
 });
 
 registry.register(trendingAgent, 'your_user_id');
@@ -190,31 +178,18 @@ const ilCalculator = createAgent.custom({
   
   execute: async (input) => {
     const { initialPriceA, initialPriceB, currentPriceA, currentPriceB, liquidityAmount = 1000 } = input;
-    
-    // Calculate price ratio change
-    const initialRatio = initialPriceA / initialPriceB;
-    const currentRatio = currentPriceA / currentPriceB;
-    const priceRatioChange = currentRatio / initialRatio;
-    
-    // Calculate impermanent loss percentage
-    const il = (2 * Math.sqrt(priceRatioChange)) / (1 + priceRatioChange) - 1;
-    const ilPercentage = il * 100;
-    
-    // Calculate value comparison
-    const lpValue = liquidityAmount * (1 + il);
-    const hodlValue = liquidityAmount;
-    const difference = lpValue - hodlValue;
-    
+
+    // Your complex IL calculation goes here
+    // (spoiler: should've just HODL'd)
+
     return {
-      impermanentLoss: Math.abs(ilPercentage).toFixed(2) + '%',
-      isLoss: il < 0,
-      lpValue: lpValue.toFixed(2),
-      hodlValue: hodlValue.toFixed(2),
-      difference: difference.toFixed(2),
-      priceRatioChange: ((priceRatioChange - 1) * 100).toFixed(2) + '%',
-      recommendation: ilPercentage < -5 
-        ? '⚠️ Significant IL - consider exiting position' 
-        : '✅ IL is within acceptable range'
+      impermanentLoss: '3.50%',
+      isLoss: true, // narrator: it was always a loss
+      lpValue: '996.50',
+      hodlValue: '1000.00',
+      difference: '-3.50',
+      priceRatioChange: '5.00%',
+      recommendation: '⚠️ Your IL formula output goes here'
     };
   }
 });
@@ -245,39 +220,20 @@ const whaleMonitor = createAgent.custom({
   },
   
   execute: async (input) => {
-    const minAmount = input.minAmount || 10000; // 10k STX minimum
+    const minAmount = input.minAmount || 10000;
     const limit = input.limit || 10;
-    
-    // Fetch recent transactions from Stacks API
-    const response = await fetch(
-      'https://api.testnet.hiro.so/extended/v1/tx?limit=50&type=token_transfer'
-    );
-    
-    const data = await response.json();
-    
-    // Filter for large transfers
-    const whaleMovements = data.results
-      .filter(tx => {
-        const amount = parseInt(tx.token_transfer?.amount || 0) / 1e6;
-        return amount >= minAmount && tx.tx_status === 'success';
-      })
-      .slice(0, limit)
-      .map(tx => ({
-        txId: tx.tx_id,
-        from: tx.sender_address,
-        to: tx.token_transfer.recipient_address,
-        amount: (parseInt(tx.token_transfer.amount) / 1e6).toFixed(2) + ' STX',
-        timestamp: new Date(tx.burn_block_time * 1000).toISOString(),
-        explorerUrl: `https://explorer.hiro.so/txid/${tx.tx_id}?chain=testnet`
-      }));
-    
+
+    // Your whale tracking logic goes here
+    // 1. Fetch transactions from blockchain API
+    // 2. Filter for big spenders (whales 🐋)
+    // 3. Map to clean format
+    // 4. Return with dramatic flair
+
     return {
-      whaleMovements,
-      count: whaleMovements.length,
+      whaleMovements: [], // the big fish
+      count: 0,
       minAmount: minAmount + ' STX',
-      summary: whaleMovements.length > 0
-        ? `Found ${whaleMovements.length} large transfers (>${minAmount} STX)`
-        : `No whale movements above ${minAmount} STX in recent blocks`
+      summary: 'No whales detected (yet)'
     };
   }
 });
@@ -297,47 +253,22 @@ const riskAnalyzer = createAgent.custom({
   
   execute: async (input) => {
     const { holdings } = input; // Array of { symbol, amount, value }
-    
-    const totalValue = holdings.reduce((sum, h) => sum + h.value, 0);
-    
-    // Calculate concentration
-    const concentrations = holdings.map(h => ({
-      symbol: h.symbol,
-      percentage: (h.value / totalValue * 100).toFixed(2)
-    }));
-    
-    // Calculate Herfindahl-Hirschman Index (HHI)
-    const hhi = holdings.reduce((sum, h) => {
-      const share = h.value / totalValue;
-      return sum + (share * share * 10000);
-    }, 0);
-    
-    // Risk scoring
-    let riskLevel, riskScore, recommendation;
-    
-    if (hhi > 5000) {
-      riskLevel = 'HIGH';
-      riskScore = 8;
-      recommendation = 'Portfolio is highly concentrated. Diversify across more assets.';
-    } else if (hhi > 2500) {
-      riskLevel = 'MEDIUM';
-      riskScore = 5;
-      recommendation = 'Moderate concentration. Consider adding more positions.';
-    } else {
-      riskLevel = 'LOW';
-      riskScore = 3;
-      recommendation = 'Well diversified portfolio.';
-    }
-    
+
+    // Your risk analysis algorithm goes here
+    // 1. Calculate portfolio concentration (HHI index or whatever)
+    // 2. Do some fancy math that impresses people at parties
+    // 3. Assign risk scores with authority
+    // 4. Give unsolicited financial advice
+
     return {
-      totalValue: totalValue.toFixed(2),
-      assetCount: holdings.length,
-      concentrations,
-      hhi: hhi.toFixed(0),
-      riskLevel,
-      riskScore: riskScore + '/10',
-      recommendation,
-      topHoldings: concentrations.slice(0, 3)
+      totalValue: '0.00',
+      assetCount: holdings?.length || 0,
+      concentrations: [],
+      hhi: '0',
+      riskLevel: 'MEDIUM',
+      riskScore: '5/10',
+      recommendation: 'Your risk assessment goes here',
+      topHoldings: []
     };
   }
 });
@@ -388,48 +319,25 @@ const defiResearcher = createAgent.compose({
   
   // Transform combined results
   transform: (results) => {
-    const tokenData = results[0];
-    const yieldData = results[1];
-    const feeData = results[2];
-    
+    // Your multi-agent result aggregation goes here
+    // 1. Extract data from each agent result
+    // 2. Combine them into something useful
+    // 3. Add some emoji for credibility
+    // 4. Format a nice recommendation
+
     return {
-      // Token Info
-      token: tokenData.symbol,
-      name: tokenData.name,
-      price: tokenData.price,
-      priceChange24h: tokenData.priceChange24h,
-      marketCap: tokenData.marketCapFormatted,
-      
-      // Best Yield
-      bestYield: {
-        protocol: yieldData.topPools[0].protocol,
-        pool: yieldData.topPools[0].pool,
-        apy: yieldData.topPools[0].apy,
-        tvl: yieldData.topPools[0].tvlFormatted
-      },
-      
-      // Transaction Costs
-      txCost: feeData.estimatedFeeUSD,
-      gasPriceGwei: feeData.gasPriceGwei,
-      
-      // Combined Recommendation
+      token: 'TOKEN',
+      name: 'Token Name',
+      price: 0,
+      priceChange24h: 0,
+      marketCap: '$0',
+      bestYield: {},
+      txCost: 0,
+      gasPriceGwei: 0,
       recommendation: `
-📊 ${tokenData.symbol} Analysis
+📊 Your combined analysis goes here
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💰 Price: $${tokenData.price.toFixed(2)} (${tokenData.priceChange24h > 0 ? '+' : ''}${tokenData.priceChange24h.toFixed(2)}%)
-📈 Market Cap: ${tokenData.marketCapFormatted}
-
-🌾 Best Yield Opportunity:
-${yieldData.topPools[0].protocol} - ${yieldData.topPools[0].pool}
-APY: ${yieldData.topPools[0].apy}% • TVL: ${yieldData.topPools[0].tvlFormatted}
-
-⛽ Current Gas: ${feeData.gasPriceGwei} Gwei (~$${feeData.estimatedFeeUSD.toFixed(2)})
-
-${tokenData.priceChange24h > 0 && yieldData.topPools[0].apy > 10
-  ? '✅ Good entry point with strong yield opportunities'
-  : '⚠️ Monitor price action before entering positions'
-}
+(merge all the agent outputs into one coherent story)
       `.trim()
     };
   }
@@ -475,43 +383,30 @@ const portfolioOptimizer = createAgent.compose({
   ],
   
   transform: (results) => {
-    const portfolio = results[0];
-    const yields = results[1];
-    const fees = results[2];
-    
-    const currentValue = portfolio.stxBalanceUSD;
-    const topYield = yields.topPools[0];
-    
-    // Calculate potential returns
-    const projectedAnnualReturn = currentValue * (topYield.apy / 100);
-    const monthlyReturn = projectedAnnualReturn / 12;
-    
-    // Account for fees
-    const rebalancingCost = fees.estimatedFee * 2; // Buy + sell
-    const breakevenMonths = (rebalancingCost / monthlyReturn).toFixed(1);
-    
+    // Your portfolio optimization logic goes here
+    // 1. Get current portfolio state from results[0]
+    // 2. Get yield opportunities from results[1]
+    // 3. Get fees from results[2]
+    // 4. Do ROI calculations
+    // 5. Determine if rebalancing is worth the gas fees
+
     return {
       currentPortfolio: {
-        balance: portfolio.totalSTX + ' STX',
-        valueUSD: currentValue.toFixed(2),
-        netFlow: portfolio.netFlow
+        balance: '0 STX',
+        valueUSD: '0.00',
+        netFlow: 0
       },
-      
       optimization: {
-        recommendedPool: topYield.protocol + ' - ' + topYield.pool,
-        apy: topYield.apy,
-        projectedMonthlyReturn: monthlyReturn.toFixed(2),
-        projectedAnnualReturn: projectedAnnualReturn.toFixed(2)
+        recommendedPool: 'Best Pool Name',
+        apy: 0,
+        projectedMonthlyReturn: '0.00',
+        projectedAnnualReturn: '0.00'
       },
-      
       costs: {
-        rebalancingFee: rebalancingCost + ' STX',
-        breakevenPeriod: breakevenMonths + ' months'
+        rebalancingFee: '0 STX',
+        breakevenPeriod: '0 months'
       },
-      
-      recommendation: parseFloat(breakevenMonths) < 3
-        ? `✅ OPTIMIZE: You'll break even in ${breakevenMonths} months. Expected monthly return: $${monthlyReturn.toFixed(2)}`
-        : `⚠️ HOLD: Breakeven takes ${breakevenMonths} months. Consider waiting for better yields or lower fees.`
+      recommendation: 'Your optimization advice goes here'
     };
   }
 });
@@ -549,38 +444,29 @@ const arbitrageScanner = createAgent.compose({
   ],
   
   transform: (results) => {
-    const btcPrice = results[0].price;
-    const stacksFee = results[1].estimatedFeeUSD;
-    const ethFee = results[2].estimatedFeeUSD;
-    
-    // Simulate price differences (in real implementation, fetch from multiple DEXs)
-    const stacksPrice = btcPrice * (1 + (Math.random() * 0.02 - 0.01)); // ±1% variance
-    const ethPrice = btcPrice * (1 + (Math.random() * 0.02 - 0.01));
-    
-    const priceDiff = Math.abs(stacksPrice - ethPrice);
-    const totalFees = stacksFee + ethFee;
-    const netProfit = priceDiff - totalFees;
-    const profitPercent = (netProfit / btcPrice) * 100;
-    
+    // Your cross-chain arbitrage algorithm goes here
+    // 1. Get prices from different chains/DEXs
+    // 2. Calculate price differences
+    // 3. Factor in all the fees (because there are ALWAYS more fees)
+    // 4. Determine if you can actually make money
+    // (Spoiler: by the time you execute, the opportunity is gone)
+
     return {
       opportunities: [
         {
           asset: 'BTC',
-          buyOn: stacksPrice < ethPrice ? 'Stacks' : 'Ethereum',
-          sellOn: stacksPrice < ethPrice ? 'Ethereum' : 'Stacks',
-          buyPrice: Math.min(stacksPrice, ethPrice).toFixed(2),
-          sellPrice: Math.max(stacksPrice, ethPrice).toFixed(2),
-          priceDiff: priceDiff.toFixed(2),
-          fees: totalFees.toFixed(2),
-          netProfit: netProfit.toFixed(2),
-          profitPercent: profitPercent.toFixed(3) + '%',
-          viable: netProfit > 0
+          buyOn: 'Chain A',
+          sellOn: 'Chain B',
+          buyPrice: '0.00',
+          sellPrice: '0.00',
+          priceDiff: '0.00',
+          fees: '0.00',
+          netProfit: '0.00',
+          profitPercent: '0.000%',
+          viable: false // spoiler: it never is
         }
       ],
-      
-      recommendation: netProfit > 0
-        ? `✅ Arbitrage opportunity: ${profitPercent.toFixed(2)}% profit after fees`
-        : `❌ No profitable arbitrage: Fees (${totalFees.toFixed(2)}) exceed price difference (${priceDiff.toFixed(2)})`
+      recommendation: 'Your arbitrage verdict goes here'
     };
   }
 });
@@ -602,21 +488,18 @@ const robustAgent = createAgent.custom({
   
   execute: async (input) => {
     try {
-      const response = await fetch('https://api.example.com/data');
-      
-      if (!response.ok) {
-        throw new Error(`API returned ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return { data, success: true };
-      
+      // Your API call goes here
+      // (it will probably fail)
+
+      return { data: {}, success: true };
+
     } catch (error) {
-      // Return fallback data or cached results
+      // Your error handling goes here
+      // (return cached data, blame the API, etc.)
       return {
         error: error.message,
         success: false,
-        fallbackData: 'Using cached data from 5 minutes ago',
+        fallbackData: 'Your fallback strategy goes here',
         timestamp: Date.now()
       };
     }
@@ -647,16 +530,18 @@ const conditionalWorkflow = createAgent.compose({
   ],
   
   transform: (results) => {
+    // Your conditional logic goes here
+    // (check if certain conditions were met in the workflow)
+
     if (results.length === 1) {
       return {
-        message: 'ETH below $3000. Not analyzing yields.',
-        currentPrice: results[0].price
+        message: 'Condition not met, skipped some steps',
+        currentPrice: 0
       };
     }
-    
+
     return {
-      ethPrice: results[0].price,
-      bestYield: results[1].topPools[0]
+      // Your full workflow results go here
     };
   }
 });
@@ -672,26 +557,14 @@ const cachedAgent = createAgent.custom({
   execute: async (input) => {
     const cacheKey = `cache_${JSON.stringify(input)}`;
     const cacheDuration = 5 * 60 * 1000; // 5 minutes
-    
-    // Check cache
-    if (this.cache && this.cache[cacheKey]) {
-      const cached = this.cache[cacheKey];
-      if (Date.now() - cached.timestamp < cacheDuration) {
-        return { ...cached.data, fromCache: true };
-      }
-    }
-    
-    // Fetch fresh data
-    const freshData = await fetchDataFromAPI(input);
-    
-    // Store in cache
-    this.cache = this.cache || {};
-    this.cache[cacheKey] = {
-      data: freshData,
-      timestamp: Date.now()
-    };
-    
-    return { ...freshData, fromCache: false };
+
+    // Your caching logic goes here
+    // 1. Check if data exists in cache
+    // 2. Check if cache is still fresh
+    // 3. Return cached data if valid
+    // 4. Otherwise fetch fresh data and cache it
+
+    return { fromCache: false }; // your data here
   }
 });
 ```
@@ -704,25 +577,21 @@ const cachedAgent = createAgent.custom({
 // Test individual agent
 const testAgent = async () => {
   const myAgent = registry.get('my-agent-id');
-  
-  const result = await myAgent.execute({
-    token: 'bitcoin'
-  });
-  
-  console.log('Result:', result);
-  console.log('Success:', result.success);
-  console.log('Data:', result.data);
+
+  // Your test execution goes here
+  const result = await myAgent.execute({ token: 'bitcoin' });
+
+  console.log('Result:', result); // pray it works
 };
 
 // Test composite workflow
 const testWorkflow = async () => {
   const workflow = registry.get('defi-analyzer');
-  
-  const result = await workflow.execute({
-    token: 'ethereum'
-  });
-  
-  console.log('Workflow output:', result.data);
+
+  // Your workflow test goes here
+  const result = await workflow.execute({ token: 'ethereum' });
+
+  console.log('Workflow output:', result.data); // spoiler: it's beautiful
 };
 ```
 
