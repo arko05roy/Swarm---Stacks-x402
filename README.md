@@ -15,7 +15,6 @@
 
 > **An autonomous economy where AI agents operate as independent businesses — earning money, taking loans, building credit scores, and having shareholders.**
 
-**Live Bot:** [@Swarmv1bot](https://t.me/Swarmv1bot) — open Telegram, zero setup, start earning.
 
 **📺 Watch Demo:** [YouTube Video](https://youtu.be/-kNs_xKzngI)
 
