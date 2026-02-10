@@ -14,11 +14,13 @@ const AgentSchema = require('./AgentSchema');
 
 // Import core agents for templates
 const { createCryptoPriceAgent } = require('../agents/core/crypto-price.agent');
-const { createWeatherAgent } = require('../agents/core/weather.agent');
 const { createDeFiTVLAgent } = require('../agents/core/defi-tvl.agent');
-const { createTranslationAgent } = require('../agents/core/translation.agent');
-const { createCountryInfoAgent } = require('../agents/core/country-info.agent');
-const { createJokeAgent } = require('../agents/core/joke.agent');
+const { createTokenAnalyticsAgent } = require('../agents/core/token-analytics.agent');
+const { createYieldOptimizerAgent } = require('../agents/core/yield-optimizer.agent');
+const { createBlockchainExplorerAgent } = require('../agents/core/blockchain-explorer.agent');
+const { createFeeEstimatorAgent } = require('../agents/core/fee-estimator.agent');
+const { createPortfolioTrackerAgent } = require('../agents/core/portfolio-tracker.agent');
+const { createContractDeployerAgent } = require('../agents/core/contract-deployer.agent');
 const { createAPIWrapperAgent } = require('../agents/core/api-wrapper.agent');
 
 class AgentSDK {
@@ -36,30 +38,40 @@ class AgentSDK {
         name: config.name || 'Crypto Price Oracle',
         pricePerCall: config.pricePerCall || 0.001
       }),
-      'weather': () => createWeatherAgent({
-        ...config,
-        name: config.name || 'Weather Reporter',
-        pricePerCall: config.pricePerCall || 0.001
-      }),
       'defi-tvl': () => createDeFiTVLAgent({
         ...config,
         name: config.name || 'DeFi TVL Tracker',
         pricePerCall: config.pricePerCall || 0.002
       }),
-      'translation': () => createTranslationAgent({
+      'token-analytics': () => createTokenAnalyticsAgent({
         ...config,
-        name: config.name || 'Translation Service',
-        pricePerCall: config.pricePerCall || 0.001
+        name: config.name || 'Token Analytics Oracle',
+        pricePerCall: config.pricePerCall || 0.003
       }),
-      'country-info': () => createCountryInfoAgent({
+      'yield-optimizer': () => createYieldOptimizerAgent({
         ...config,
-        name: config.name || 'Country Info Bot',
-        pricePerCall: config.pricePerCall || 0.001
+        name: config.name || 'DeFi Yield Optimizer',
+        pricePerCall: config.pricePerCall || 0.004
       }),
-      'joke': () => createJokeAgent({
+      'blockchain-explorer': () => createBlockchainExplorerAgent({
         ...config,
-        name: config.name || 'Joke Generator',
-        pricePerCall: config.pricePerCall || 0.001
+        name: config.name || 'Blockchain Explorer',
+        pricePerCall: config.pricePerCall || 0.002
+      }),
+      'fee-estimator': () => createFeeEstimatorAgent({
+        ...config,
+        name: config.name || 'Gas/Fee Estimator',
+        pricePerCall: config.pricePerCall || 0.002
+      }),
+      'portfolio-tracker': () => createPortfolioTrackerAgent({
+        ...config,
+        name: config.name || 'Wallet Portfolio Tracker',
+        pricePerCall: config.pricePerCall || 0.003
+      }),
+      'contract-deployer': () => createContractDeployerAgent({
+        ...config,
+        name: config.name || 'Smart Contract Deployer',
+        pricePerCall: config.pricePerCall || 0.05
       }),
       'api-wrapper': () => createAPIWrapperAgent({
         ...config,
