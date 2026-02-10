@@ -13,6 +13,7 @@ const { registry } = require('../core/AgentRegistry');
 const { liquidityPool } = require('../platform/LiquidityPool');
 const { botInvestment } = require('../platform/BotInvestment');
 const { executionEngine } = require('../core/ExecutionEngine');
+const db = require('../database/db');
 
 const EXPLORER_BASE = 'https://explorer.hiro.so/txid';
 
@@ -217,40 +218,64 @@ Build workflows by chaining existing agents.
    * Handle /browse_store - Browse marketplace with investment data
    */
   async handleBrowseStore(msg) {
-    const trending = registry.getTrending(5);
-    const topRated = registry.getTopRated(5);
-    const topInvestments = botInvestment.getTopOpportunities(5);
+    // Combine both data stores for full marketplace view
+    const allDbBots = db.getAllBots();
+    const sdkAgents = registry.list({ activeOnly: true });
 
     let message = `🏪 <b>Agent Marketplace</b>\n\n`;
 
+    // Trending: top bots by calls from db
+    const trending = [...allDbBots]
+      .sort((a, b) => (b.tasksCompleted || 0) - (a.tasksCompleted || 0))
+      .slice(0, 5);
+
     if (trending.length > 0) {
-      message += `🔥 <b>Trending (24h)</b>\n`;
-      trending.forEach((a, i) => {
-        message += `${i + 1}. ${a.name} - ${a.metadata.calls} calls\n`;
-        message += `   💰 ${a.pricing.pricePerCall} STX/call | ✅ ${a.metadata.successRate.toFixed(1)}%\n`;
+      message += `🔥 <b>Trending</b>\n`;
+      trending.forEach((b, i) => {
+        message += `${i + 1}. ${b.name} — ${(b.tasksCompleted || 0).toLocaleString()} calls\n`;
+        message += `   💰 ${b.pricePerCall} STX/call | ⭐ ${(b.rating || 5).toFixed(1)}\n`;
       });
       message += `\n`;
     }
 
-    if (topInvestments.length > 0) {
-      message += `📈 <b>Top Investment Opportunities</b>\n`;
-      topInvestments.forEach((opp, i) => {
-        const apyIcon = opp.projectedAPY > 100 ? '🚀' : opp.projectedAPY > 50 ? '📈' : '📊';
-        message += `${i + 1}. ${opp.botName}\n`;
-        message += `   ${apyIcon} ${opp.projectedAPY.toFixed(1)}% APY | 💰 ${opp.totalInvested.toFixed(2)} STX invested\n`;
+    // Top earners
+    const topEarners = [...allDbBots]
+      .sort((a, b) => (b.totalEarnings || 0) - (a.totalEarnings || 0))
+      .slice(0, 5);
+
+    if (topEarners.length > 0) {
+      message += `💰 <b>Top Earners</b>\n`;
+      topEarners.forEach((b, i) => {
+        message += `${i + 1}. ${b.name} — ${(b.totalEarnings || 0).toFixed(2)} STX\n`;
       });
       message += `\n`;
     }
 
-    if (topRated.length > 0) {
-      message += `⭐ <b>Top Rated</b>\n`;
-      topRated.forEach((a, i) => {
-        message += `${i + 1}. ${a.name} - ${a.metadata.reputation.toFixed(0)}% success\n`;
+    // Investment opportunities
+    try {
+      const topInvestments = botInvestment.getTopOpportunities(5);
+      if (topInvestments.length > 0) {
+        message += `📈 <b>Top Investment Opportunities</b>\n`;
+        topInvestments.forEach((opp, i) => {
+          const apyIcon = opp.projectedAPY > 100 ? '🚀' : opp.projectedAPY > 50 ? '📈' : '📊';
+          message += `${i + 1}. ${opp.botName}\n`;
+          message += `   ${apyIcon} ${opp.projectedAPY.toFixed(1)}% APY | 💰 ${opp.totalInvested.toFixed(2)} STX invested\n`;
+        });
+        message += `\n`;
+      }
+    } catch (_) {}
+
+    // SDK agents (live callable agents)
+    if (sdkAgents.length > 0) {
+      message += `🤖 <b>Live SDK Agents</b>\n`;
+      sdkAgents.slice(0, 5).forEach((a, i) => {
+        message += `${i + 1}. ${a.name} — ${a.pricing.pricePerCall} STX/call\n`;
       });
       message += `\n`;
     }
 
-    message += `📊 <b>Total agents:</b> ${registry.list().length}`;
+    const totalCount = allDbBots.length + sdkAgents.length;
+    message += `📊 <b>Total:</b> ${totalCount} agents in marketplace`;
     message += `\n\n<b>Commands:</b>`;
     message += `\n/search [query] - Find agents`;
     message += `\n/top_investments - Best investment opportunities`;
@@ -299,25 +324,50 @@ Build workflows by chaining existing agents.
    * Handle /search - Search agents
    */
   async handleSearch(msg, query) {
-    const results = registry.search(query);
+    const lowerQuery = query.toLowerCase();
 
-    if (results.length === 0) {
+    // Search SDK agents
+    const sdkResults = registry.search(query);
+
+    // Search db bots
+    const dbBots = db.getAllBots().filter(b => {
+      const name = (b.name || '').toLowerCase();
+      const desc = (b.description || '').toLowerCase();
+      const caps = (b.capabilities || []).join(' ').toLowerCase();
+      return name.includes(lowerQuery) || desc.includes(lowerQuery) || caps.includes(lowerQuery);
+    });
+
+    const totalResults = sdkResults.length + dbBots.length;
+
+    if (totalResults === 0) {
       return this.bot.sendMessage(
         msg.chat.id,
         `❌ No agents found for "${query}"\n\nTry /browse_store to see all agents`
       );
     }
 
-    let message = `🔍 <b>Search results for "${query}"</b>\n\n`;
+    let message = `🔍 <b>Search results for "${query}"</b> (${totalResults})\n\n`;
 
-    results.slice(0, 10).forEach((a, i) => {
-      message += `${i + 1}. <b>${a.name}</b>\n`;
+    let count = 0;
+
+    // Show db bots first (seeded marketplace data)
+    dbBots.slice(0, 8).forEach((b) => {
+      count++;
+      message += `${count}. <b>${b.name}</b>\n`;
+      message += `   ${b.description}\n`;
+      message += `   💰 ${b.pricePerCall} STX | 📊 ${(b.tasksCompleted || 0).toLocaleString()} calls\n\n`;
+    });
+
+    // Then SDK agents
+    sdkResults.slice(0, 10 - count).forEach((a) => {
+      count++;
+      message += `${count}. <b>${a.name}</b>\n`;
       message += `   ${a.description}\n`;
       message += `   💰 ${a.pricing.pricePerCall} STX | 📊 ${a.metadata.calls} calls\n\n`;
     });
 
-    if (results.length > 10) {
-      message += `\n...and ${results.length - 10} more`;
+    if (totalResults > 10) {
+      message += `\n...and ${totalResults - 10} more`;
     }
 
     await this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'HTML' });
@@ -528,6 +578,183 @@ Utilization: ${stats.utilization}%`;
   /**
    * Handle general messages in session
    */
+  /**
+   * Handle template number selection
+   */
+  async handleTemplateSelect(userId, text, chatId) {
+    const templates = listTemplates();
+    const index = parseInt(text) - 1;
+
+    if (isNaN(index) || index < 0 || index >= templates.length) {
+      return this.bot.sendMessage(chatId, `❌ Invalid selection. Reply with a number (1-${templates.length}):`);
+    }
+
+    const template = templates[index];
+    this.sessions.set(userId, {
+      ...this.sessions.get(userId),
+      step: 'template_name',
+      data: { templateId: template.id, templateName: template.name }
+    });
+
+    await this.bot.sendMessage(chatId, `You selected: <b>${template.icon} ${template.name}</b>\n\nNow give your agent a custom name:`, { parse_mode: 'HTML' });
+  }
+
+  /**
+   * Handle template agent naming
+   */
+  async handleTemplateName(userId, text, chatId) {
+    const name = text.trim();
+    if (name.length < 2 || name.length > 50) {
+      return this.bot.sendMessage(chatId, '❌ Name must be 2-50 characters. Try again:');
+    }
+
+    const session = this.sessions.get(userId);
+    session.data.name = name;
+    session.step = 'template_price';
+    this.sessions.set(userId, session);
+
+    await this.bot.sendMessage(chatId, `Great name! <b>${name}</b>\n\nSet a price per call in STX (e.g., 0.001 - 1):`, { parse_mode: 'HTML' });
+  }
+
+  /**
+   * Handle template agent pricing and create agent
+   */
+  async handleTemplatePrice(userId, text, chatId) {
+    const price = parseFloat(text);
+    if (isNaN(price) || price < 0.001 || price > 1) {
+      return this.bot.sendMessage(chatId, '❌ Price must be between 0.001 and 1 STX. Try again:');
+    }
+
+    const session = this.sessions.get(userId);
+    const { templateId, name } = session.data;
+
+    try {
+      const agent = fromTemplate(templateId, {
+        name,
+        pricePerCall: price,
+        userId: userId.toString()
+      });
+
+      this.sessions.delete(userId);
+
+      await this.bot.sendMessage(chatId,
+        `✅ <b>Agent Created!</b>\n\n` +
+        `Name: <b>${name}</b>\n` +
+        `Template: ${templateId}\n` +
+        `Price: ${price} STX/call\n` +
+        `ID: <code>${agent.id}</code>\n\n` +
+        `Your agent is now live in the marketplace!`,
+        { parse_mode: 'HTML' }
+      );
+    } catch (err) {
+      this.sessions.delete(userId);
+      await this.bot.sendMessage(chatId, `❌ Failed to create agent: ${err.message}`);
+    }
+  }
+
+  /**
+   * Handle API wrapper URL input
+   */
+  async handleAPIUrl(userId, text, chatId) {
+    const url = text.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      return this.bot.sendMessage(chatId, '❌ Please enter a valid URL starting with http:// or https://');
+    }
+
+    const session = this.sessions.get(userId);
+    session.data = { ...session.data, apiUrl: url };
+    session.step = 'api_desc';
+    this.sessions.set(userId, session);
+
+    await this.bot.sendMessage(chatId, 'What does this API do? Enter a short description:');
+  }
+
+  /**
+   * Handle API wrapper description
+   */
+  async handleAPIDesc(userId, text, chatId) {
+    const session = this.sessions.get(userId);
+    session.data.description = text.trim();
+    session.step = 'api_name';
+    this.sessions.set(userId, session);
+
+    await this.bot.sendMessage(chatId, 'Give your API agent a name:');
+  }
+
+  /**
+   * Handle API wrapper naming and create agent
+   */
+  async handleAPIName(userId, text, chatId) {
+    const name = text.trim();
+    if (name.length < 2 || name.length > 50) {
+      return this.bot.sendMessage(chatId, '❌ Name must be 2-50 characters. Try again:');
+    }
+
+    const session = this.sessions.get(userId);
+    try {
+      const agent = apiWrapper({
+        name,
+        apiUrl: session.data.apiUrl,
+        description: session.data.description,
+        userId: userId.toString()
+      });
+
+      this.sessions.delete(userId);
+
+      await this.bot.sendMessage(chatId,
+        `✅ <b>API Agent Created!</b>\n\n` +
+        `Name: <b>${name}</b>\n` +
+        `API: ${session.data.apiUrl}\n` +
+        `Price: 0.002 STX/call\n` +
+        `ID: <code>${agent.id}</code>\n\n` +
+        `Your agent is now live!`,
+        { parse_mode: 'HTML' }
+      );
+    } catch (err) {
+      this.sessions.delete(userId);
+      await this.bot.sendMessage(chatId, `❌ Failed to create agent: ${err.message}`);
+    }
+  }
+
+  /**
+   * Handle compose agent selection
+   */
+  async handleComposeSelect(userId, text, chatId) {
+    const session = this.sessions.get(userId);
+    const agents = session.agents;
+    const indices = text.split(',').map(s => parseInt(s.trim()) - 1);
+
+    const invalid = indices.some(i => isNaN(i) || i < 0 || i >= agents.length);
+    if (invalid || indices.length < 2) {
+      return this.bot.sendMessage(chatId, '❌ Select at least 2 valid agent numbers separated by commas (e.g., "1,3,5"):');
+    }
+
+    const selectedAgents = indices.map(i => agents[i]);
+    const workflow = selectedAgents.map(a => ({ agent: a.id }));
+
+    try {
+      const agent = compose({
+        name: `Workflow: ${selectedAgents.map(a => a.name).join(' → ')}`,
+        workflow,
+        userId: userId.toString()
+      });
+
+      this.sessions.delete(userId);
+
+      await this.bot.sendMessage(chatId,
+        `✅ <b>Composite Agent Created!</b>\n\n` +
+        `Workflow: ${selectedAgents.map(a => a.name).join(' → ')}\n` +
+        `Steps: ${workflow.length}\n` +
+        `ID: <code>${agent.id}</code>\n\n` +
+        `Your workflow agent is now live!`,
+        { parse_mode: 'HTML' }
+      );
+    } catch (err) {
+      this.sessions.delete(userId);
+      await this.bot.sendMessage(chatId, `❌ Failed to create workflow: ${err.message}`);
+    }
+  }
+
   async handleSessionMessage(userId, text, chatId) {
     const session = this.sessions.get(userId);
 
@@ -539,7 +766,33 @@ Utilization: ${stats.utilization}%`;
         await this.handleMethodSelection(userId, text, chatId);
         return true;
 
-      // Add more step handlers as needed
+      case 'template_select':
+        await this.handleTemplateSelect(userId, text, chatId);
+        return true;
+
+      case 'template_name':
+        await this.handleTemplateName(userId, text, chatId);
+        return true;
+
+      case 'template_price':
+        await this.handleTemplatePrice(userId, text, chatId);
+        return true;
+
+      case 'api_url':
+        await this.handleAPIUrl(userId, text, chatId);
+        return true;
+
+      case 'api_desc':
+        await this.handleAPIDesc(userId, text, chatId);
+        return true;
+
+      case 'api_name':
+        await this.handleAPIName(userId, text, chatId);
+        return true;
+
+      case 'compose_select':
+        await this.handleComposeSelect(userId, text, chatId);
+        return true;
 
       default:
         return false;

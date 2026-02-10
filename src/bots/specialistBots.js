@@ -13,10 +13,9 @@ const PriceBot = {
   walletAddress: process.env.PRICE_BOT_WALLET,
 
   handler: async (taskData) => {
-    const { symbol } = taskData; // e.g., "BTC", "ETH", "bitcoin", "ethereum"
+    const { symbol } = taskData;
 
     try {
-      // Fetch real price from API (CoinGecko free tier)
       const response = await fetch(
         `https://api.coingecko.com/api/v3/simple/price?ids=${symbol.toLowerCase()}&vs_currencies=usd`,
         {
@@ -50,103 +49,6 @@ const PriceBot = {
 };
 
 /**
- * Weather Bot - Returns weather data
- */
-const WeatherBot = {
-  id: 'weather-bot',
-  name: '🌤️ Weather Oracle',
-  description: 'Current weather conditions',
-  capabilities: ['weather'],
-  pricePerCall: 0.005,
-  walletAddress: process.env.WEATHER_BOT_WALLET,
-
-  handler: async (taskData) => {
-    const { city } = taskData;
-
-    try {
-      // Use free weather API (wttr.in)
-      const response = await fetch(`https://wttr.in/${city}?format=j1`, {
-        headers: {
-          'User-Agent': 'SwarmBot/1.0'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Weather API returned ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (!data.current_condition || !data.current_condition[0]) {
-        throw new Error('Invalid weather data received');
-      }
-
-      const current = data.current_condition[0];
-
-      return {
-        city,
-        temperature: current.temp_C,
-        condition: current.weatherDesc[0].value,
-        humidity: current.humidity,
-        timestamp: Date.now()
-      };
-    } catch (error) {
-      throw new Error(`Weather fetch failed: ${error.message}`);
-    }
-  }
-};
-
-/**
- * Translation Bot - Translates text
- */
-const TranslationBot = {
-  id: 'translation-bot',
-  name: '🌍 Translator',
-  description: 'Translate text between languages',
-  capabilities: ['translate'],
-  pricePerCall: 0.008,
-  walletAddress: process.env.TRANSLATION_BOT_WALLET,
-
-  handler: async (taskData) => {
-    const { text, from, to } = taskData;
-
-    try {
-      const sourceLang = from || 'en';
-      const targetLang = to || 'es';
-
-      // Use MyMemory free translation API
-      const response = await fetch(
-        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLang}|${targetLang}`,
-        {
-          headers: {
-            'User-Agent': 'SwarmBot/1.0'
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Translation API returned ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (!data.responseData || !data.responseData.translatedText) {
-        throw new Error(`Translation failed for "${text}"`);
-      }
-
-      return {
-        original: text,
-        translated: data.responseData.translatedText,
-        from: sourceLang,
-        to: targetLang
-      };
-    } catch (error) {
-      throw new Error(`Translation failed: ${error.message}`);
-    }
-  }
-};
-
-/**
  * Calculator Bot - Performs calculations
  */
 const CalculatorBot = {
@@ -154,13 +56,12 @@ const CalculatorBot = {
   name: '🧮 Calculator',
   description: 'Perform mathematical calculations',
   capabilities: ['calculate', 'math'],
-  pricePerCall: 0.001, // Cheapest bot
+  pricePerCall: 0.001,
   walletAddress: process.env.CALC_BOT_WALLET,
 
   handler: async (taskData) => {
     const { expression } = taskData;
 
-    // Safe eval (only allow math operations)
     const sanitized = expression.replace(/[^0-9+\-*/(). ]/g, '');
     const result = eval(sanitized);
 
@@ -172,20 +73,16 @@ const CalculatorBot = {
   }
 };
 
-// Register all specialist bots
+// Register specialist bots
 function initializeSpecialistBots() {
   BotRegistry.registerSpecialistBot(PriceBot);
-  BotRegistry.registerSpecialistBot(WeatherBot);
-  BotRegistry.registerSpecialistBot(TranslationBot);
   BotRegistry.registerSpecialistBot(CalculatorBot);
 
-  console.log('✅ Registered 4 specialist bots');
+  console.log('✅ Registered 2 specialist bots');
 }
 
 module.exports = {
   PriceBot,
-  WeatherBot,
-  TranslationBot,
   CalculatorBot,
   initializeSpecialistBots
 };

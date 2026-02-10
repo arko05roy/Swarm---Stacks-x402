@@ -1,5 +1,5 @@
 /**
- * Demo Data Seeder v2.0
+ * Demo Data Seeder v3.0
  *
  * Creates realistic bot marketplace data for compelling demo videos.
  * Populates the bot database with diverse agents, transaction history,
@@ -46,7 +46,51 @@ const DEMO_CREATORS = [
   'ecosystem_builder'
 ];
 
-// Premium bot templates for vibrant marketplace
+// Core system bots (seeded directly — no dependency on specialistBots.js)
+const CORE_SYSTEM_BOTS = [
+  {
+    id: 'price-oracle-bot',
+    name: '💰 Price Oracle',
+    description: 'Real-time cryptocurrency prices from CoinGecko',
+    capabilities: ['crypto-price'],
+    pricePerCall: 0.01,
+    callsRange: [10000, 15000],
+    rating: 5.0,
+    handler: async () => ({ status: 'demo' })
+  },
+  {
+    id: 'defi-tvl-bot',
+    name: '📊 DeFi TVL Tracker',
+    description: 'Track total value locked across DeFi protocols',
+    capabilities: ['defi', 'tvl'],
+    pricePerCall: 0.008,
+    callsRange: [5000, 9000],
+    rating: 4.9,
+    handler: async () => ({ status: 'demo' })
+  },
+  {
+    id: 'blockchain-explorer-bot',
+    name: '🔍 Blockchain Explorer',
+    description: 'Look up transactions, addresses, and blocks on Stacks',
+    capabilities: ['explorer', 'blockchain'],
+    pricePerCall: 0.005,
+    callsRange: [8000, 12000],
+    rating: 4.8,
+    handler: async () => ({ status: 'demo' })
+  },
+  {
+    id: 'fee-estimator-bot',
+    name: '⛽ Gas Fee Estimator',
+    description: 'Estimate transaction fees across chains',
+    capabilities: ['gas', 'fees'],
+    pricePerCall: 0.003,
+    callsRange: [6000, 10000],
+    rating: 4.9,
+    handler: async () => ({ status: 'demo' })
+  }
+];
+
+// Premium user-created bot templates for vibrant marketplace
 const BOT_TEMPLATES = [
   {
     name: '🔍 Stacks Protocol Analyzer',
@@ -200,14 +244,6 @@ const BOT_TEMPLATES = [
   }
 ];
 
-// Core system bots (should already exist)
-const CORE_BOTS = [
-  { id: 'price-oracle-bot', callsRange: [10000, 15000], rating: 5.0 },
-  { id: 'weather-bot', callsRange: [3000, 6000], rating: 4.7 },
-  { id: 'translation-bot', callsRange: [5000, 9000], rating: 4.8 },
-  { id: 'calculator-bot', callsRange: [8000, 12000], rating: 4.9 }
-];
-
 /**
  * Generate random number in range
  */
@@ -231,16 +267,15 @@ function generateTransactionHistory(botId, totalCalls, pricePerCall) {
   const transactions = [];
   const now = Date.now();
 
-  // Spread transactions over last 60 days with realistic patterns
   for (let i = 0; i < Math.min(totalCalls, 50); i++) {
-    const daysAgo = Math.floor(Math.pow(Math.random(), 2) * 60); // More recent = more likely
+    const daysAgo = Math.floor(Math.pow(Math.random(), 2) * 60);
     const timestamp = now - (daysAgo * 24 * 60 * 60 * 1000);
 
     transactions.push({
       taskId: `task-${Date.now()}-${randomInRange(1000, 9999)}`,
       botId,
       amount: pricePerCall,
-      status: Math.random() > 0.05 ? 'completed' : 'failed', // 95% success rate
+      status: Math.random() > 0.05 ? 'completed' : 'failed',
       timestamp
     });
   }
@@ -266,7 +301,6 @@ function createUserBot(template) {
     walletAddress: generateDemoStacksAddress(template.creator),
     creator: template.creator,
 
-    // Metadata for marketplace display
     totalEarnings: parseFloat(totalEarnings.toFixed(4)),
     tasksCompleted: calls,
     rating: template.rating,
@@ -274,7 +308,6 @@ function createUserBot(template) {
     registeredAt: randomTimestampLastNDays(90),
     lastActive: randomTimestampLastNDays(7),
 
-    // Demo handler (won't be called in video)
     handler: async (taskData) => {
       return { status: 'demo', data: taskData };
     }
@@ -284,51 +317,37 @@ function createUserBot(template) {
 }
 
 /**
- * Enhance core system bots with realistic activity
- */
-function enhanceCoreBot(botConfig) {
-  const bot = db.getBot(botConfig.id);
-  if (!bot) return null;
-
-  const calls = randomInRange(botConfig.callsRange[0], botConfig.callsRange[1]);
-  const totalEarnings = calls * bot.pricePerCall;
-
-  return {
-    ...bot,
-    totalEarnings: parseFloat(totalEarnings.toFixed(4)),
-    tasksCompleted: calls,
-    rating: botConfig.rating,
-    successRate: randomInRange(94, 100),
-    lastActive: randomTimestampLastNDays(2)
-  };
-}
-
-/**
  * Main seeder function
  */
 async function seedDemoData() {
   console.log('🌱 Seeding Swarm Bot Marketplace with demo data...\n');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-  // Step 1: Enhance core system bots
-  console.log('📦 Enhancing core system bots with activity...');
-  let coreBotsEnhanced = 0;
+  // Step 1: Seed core system bots with realistic activity
+  console.log('📦 Seeding core system bots...\n');
 
-  for (const coreConfig of CORE_BOTS) {
-    const enhanced = enhanceCoreBot(coreConfig);
-    if (enhanced) {
-      // Update in database
-      db.botRegistry.set(enhanced.id, enhanced);
+  for (const coreBot of CORE_SYSTEM_BOTS) {
+    const calls = randomInRange(coreBot.callsRange[0], coreBot.callsRange[1]);
+    const totalEarnings = parseFloat((calls * coreBot.pricePerCall).toFixed(4));
 
-      // Add to leaderboard
-      db.leaderboard.set(enhanced.id, enhanced.totalEarnings);
+    db.registerBot(coreBot.id, {
+      ...coreBot,
+      totalEarnings,
+      tasksCompleted: calls,
+      successRate: randomInRange(94, 100),
+      registeredAt: randomTimestampLastNDays(120),
+      lastActive: randomTimestampLastNDays(2)
+    });
 
-      console.log(`  ✓ ${enhanced.name}: ${enhanced.tasksCompleted.toLocaleString()} calls, ${enhanced.totalEarnings.toFixed(3)} STX earned, ${enhanced.rating}★`);
-      coreBotsEnhanced++;
-    }
+    db.leaderboard.set(coreBot.id, totalEarnings);
+
+    const transactions = generateTransactionHistory(coreBot.id, calls, coreBot.pricePerCall);
+    transactions.forEach(tx => db.taskHistory.set(tx.taskId, tx));
+
+    console.log(`  ✓ ${coreBot.name}: ${calls.toLocaleString()} calls, ${totalEarnings.toFixed(3)} STX earned, ${coreBot.rating}★`);
   }
 
-  console.log(`\n✅ Enhanced ${coreBotsEnhanced} core bots\n`);
+  console.log(`\n✅ Seeded ${CORE_SYSTEM_BOTS.length} core bots\n`);
 
   // Step 2: Create vibrant user-generated bots
   console.log('👥 Creating user-generated specialist bots...\n');
@@ -337,25 +356,19 @@ async function seedDemoData() {
 
   for (const template of BOT_TEMPLATES) {
     try {
-      // Small delay for unique timestamps
       await new Promise(resolve => setTimeout(resolve, 5));
 
       const bot = createUserBot(template);
 
-      // Register in database
       db.registerBot(bot.id, bot);
-
-      // Add to leaderboard
       db.leaderboard.set(bot.id, bot.totalEarnings);
 
-      // Generate transaction history
       const transactions = generateTransactionHistory(
         bot.id,
         bot.tasksCompleted,
         bot.pricePerCall
       );
 
-      // Store transactions (simplified for demo)
       transactions.forEach(tx => {
         db.taskHistory.set(tx.taskId, tx);
       });
@@ -427,14 +440,13 @@ async function seedDemoData() {
   // Step 7: Show demo tips
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   console.log('🎬 DEMO RECORDING TIPS\n');
-  console.log('  1. Run /browse_store to show vibrant marketplace');
-  console.log('  2. Run /leaderboard to show top earning bots');
-  console.log('  3. Run /hire <capability> to demonstrate bot hiring');
-  console.log('  4. Run /my_bots to show user portfolio');
-  console.log('  5. Bot IDs look organic (not sequential)');
-  console.log('  6. Realistic earnings and call counts');
-  console.log('  7. Transaction history spread over 60 days');
-  console.log('  8. Success rates between 92-100%');
+  console.log('  1. Run /start to see the welcome screen');
+  console.log('  2. Run /browse_store to show vibrant marketplace');
+  console.log('  3. Run /leaderboard to show top earning bots');
+  console.log('  4. Run /create_agent to build a new agent');
+  console.log('  5. Ask "What\'s the price of Bitcoin?" to demo queries');
+  console.log('  6. Run /pool to show liquidity pool');
+  console.log('  7. Run /my_agents to show agent analytics');
   console.log('\n🎥 Ready for video recording! Good luck!\n');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 }

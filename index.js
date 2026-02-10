@@ -1,21 +1,16 @@
 require('dotenv').config();
 const MainBot = require('./src/bots/mainBot');
 const { initializeSpecialistBots } = require('./src/bots/specialistBots');
-const BotRegistry = require('./src/bots/botRegistry');
 const db = require('./src/database/db');
-const { BOT_TEMPLATES } = require('./src/services/botTemplates');
 const Logger = require('./src/utils/logger');
+const { seedDemoData } = require('./scripts/demo-data-seeder');
 
 // Validate environment variables
 const requiredEnv = [
   'TELEGRAM_BOT_TOKEN',
   'STACKS_WALLET_SEED',
   'STACKS_ADDRESS',
-  'ESCROW_CONTRACT_ADDRESS',
-  'PRICE_BOT_WALLET',
-  'WEATHER_BOT_WALLET',
-  'TRANSLATION_BOT_WALLET',
-  'CALC_BOT_WALLET'
+  'ESCROW_CONTRACT_ADDRESS'
 ];
 
 const missingEnv = requiredEnv.filter(env => !process.env[env]);
@@ -27,53 +22,35 @@ if (missingEnv.length > 0) {
   process.exit(1);
 }
 
-// Initialize specialist bots (system bots)
-Logger.info('Initializing specialist bots...');
-initializeSpecialistBots();
+async function start() {
+  // Initialize specialist bots (system bots with live handlers)
+  Logger.info('Initializing specialist bots...');
+  initializeSpecialistBots();
 
-// Load persisted data (earnings, leaderboard, user-created bots)
-const savedData = db.loadFromDisk();
+  // Load persisted data (earnings, leaderboard, user-created bots)
+  // persistence.js restores all bots from disk automatically
+  db.loadFromDisk();
 
-if (savedData && savedData.bots) {
-  let restoredCount = 0;
-
-  for (const [botId, botData] of savedData.bots) {
-    // Skip system bots (already registered above)
-    if (!botData.createdBy) continue;
-
-    // Re-create handler from template
-    const template = BOT_TEMPLATES[botData.template];
-    if (!template) {
-      Logger.error('Unknown template for saved bot', { botId, template: botData.template });
-      continue;
-    }
-
-    const userParams = botData.templateParams || {};
-    const handler = async (taskData) => {
-      return await template.handler(taskData, userParams);
-    };
-
-    // Re-register with handler
-    BotRegistry.registerSpecialistBot({
-      ...botData,
-      handler
-    });
-
-    restoredCount++;
+  // Seed demo data if marketplace is empty (only system bots present)
+  const allBots = db.getAllBots();
+  if (allBots.length <= 5) {
+    Logger.info('Marketplace empty, seeding demo data...');
+    await seedDemoData();
   }
 
-  if (restoredCount > 0) {
-    Logger.success(`Restored ${restoredCount} user-created bots from disk`);
-  }
+  // Start main bot
+  Logger.info('Starting main orchestrator bot...');
+  const mainBot = new MainBot(process.env.TELEGRAM_BOT_TOKEN);
+  mainBot.start();
+
+  Logger.success('🐝 Swarm is fully operational!');
+  Logger.info('Commands: /start, /bots, /leaderboard, /create_agent');
 }
 
-// Start main bot
-Logger.info('Starting main orchestrator bot...');
-const mainBot = new MainBot(process.env.TELEGRAM_BOT_TOKEN);
-mainBot.start();
-
-Logger.success('🐝 Swarm is fully operational!');
-Logger.info('Commands: /start, /bots, /leaderboard');
+start().catch(err => {
+  console.error('❌ Failed to start:', err);
+  process.exit(1);
+});
 
 // Graceful shutdown - save data
 process.on('SIGINT', () => {

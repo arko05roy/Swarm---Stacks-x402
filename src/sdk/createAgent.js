@@ -336,11 +336,13 @@ class AgentSDK {
   static listTemplates() {
     return [
       { id: 'crypto-price', name: 'Crypto Price Oracle', icon: '💰' },
-      { id: 'weather', name: 'Weather Reporter', icon: '🌤️' },
       { id: 'defi-tvl', name: 'DeFi TVL Tracker', icon: '📊' },
-      { id: 'translation', name: 'Translation Service', icon: '🗣️' },
-      { id: 'country-info', name: 'Country Info Bot', icon: '🌍' },
-      { id: 'joke', name: 'Joke Generator', icon: '😄' },
+      { id: 'token-analytics', name: 'Token Analytics Oracle', icon: '📈' },
+      { id: 'yield-optimizer', name: 'DeFi Yield Optimizer', icon: '🌾' },
+      { id: 'blockchain-explorer', name: 'Blockchain Explorer', icon: '🔍' },
+      { id: 'fee-estimator', name: 'Gas/Fee Estimator', icon: '⛽' },
+      { id: 'portfolio-tracker', name: 'Wallet Portfolio Tracker', icon: '💼' },
+      { id: 'contract-deployer', name: 'Smart Contract Deployer', icon: '📜' },
       { id: 'api-wrapper', name: 'Custom API Bot', icon: '🔧' }
     ];
   }

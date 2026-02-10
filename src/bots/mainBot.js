@@ -20,15 +20,34 @@ class MainBot {
     this.botCreation = new BotCreationService(this.walletService);
     this.rateLimiter = new RateLimiter();
 
-    // Load persisted bot database (demo data, earnings, etc.)
-    db.loadFromDisk();
-    Logger.info('Bot database loaded from disk');
-
     // Initialize modular agent framework (Strategic Pivot #2)
     initializeCoreAgents();
     this.enhanced = new EnhancedBotCommands(this.bot, this.walletService);
 
     this.setupCommands();
+    this.registerCommandMenu();
+  }
+
+  registerCommandMenu() {
+    this.bot.setMyCommands([
+      { command: 'start', description: 'Welcome & setup wallet' },
+      { command: 'create_agent', description: 'Build an agent (4 methods)' },
+      { command: 'create_bot', description: 'Quick template creation' },
+      { command: 'my_agents', description: 'Your agents + analytics' },
+      { command: 'my_bots', description: 'Your template bots' },
+      { command: 'browse_store', description: 'Agent marketplace' },
+      { command: 'search', description: 'Search for agents' },
+      { command: 'top_investments', description: 'Best investment opportunities' },
+      { command: 'my_investments', description: 'Your investment portfolio' },
+      { command: 'pool', description: 'Liquidity pool overview' },
+      { command: 'deposit', description: 'Deposit STX to earn yield' },
+      { command: 'pool_stats', description: 'Pool analytics' },
+      { command: 'wallet', description: 'Your wallet info' },
+      { command: 'leaderboard', description: 'Top earners' },
+      { command: 'bots', description: 'All marketplace bots' },
+      { command: 'cancel', description: 'Cancel current action' },
+      { command: 'help', description: 'All commands' },
+    ]);
   }
 
   setupCommands() {
@@ -129,45 +148,58 @@ class MainBot {
     // Auto-generate wallet if user doesn't have one
     const wallet = await this.walletService.generateWallet(userId);
 
-    const welcomeMsg = `🐝 <b>Welcome to Swarm!</b>
+    const welcomeMsg = `<b>Welcome to Swarm</b> 🐝
 
-<b>Build AI agent economies with Bitcoin micropayments.</b>
+<i>Build, deploy, and monetize AI agents — powered by Stacks micropayments.</i>
 
-👛 <b>Your Wallet:</b> <code>${wallet.address}</code>
+━━━━━━━━━━━━━━━━━━━━
 
-<b>How it works:</b>
-1. Create agents with /create_agent (4 methods!)
-2. Chain agents together into workflows
-3. Earn yield by providing liquidity to agents
+👛 <b>Your Wallet</b>
+<code>${wallet.address}</code>
 
-<b>Try asking:</b>
-• "What's the price of Bitcoin?"
-• "Weather in Paris?"
-• "Translate hello to Spanish"
+━━━━━━━━━━━━━━━━━━━━
 
-<b>Agent Commands:</b>
-/create_agent - Create with SDK (4 methods) 🤖
-/create_bot - Quick template creation 🎨
-/my_agents - Your agents + analytics 📊
-/browse_store - Agent marketplace 🏪
+<b>How it works</b>
 
-<b>Bot Investment:</b>
-/top_investments - Best opportunities 📈
-/invest [botId] [amt] - Invest in bot 💰
-/my_investments - Your portfolio 💼
-/withdraw_all [botId] - Withdraw everything 💸
-/bot_stats [botId] - Bot performance 📊
-/withdraw_earnings [botId] - Withdraw bot creator earnings 💰
+  1.  Create an agent from templates or your own API
+  2.  Set a price — earn STX every time it's called
+  3.  Invest in other agents and share their revenue
 
-<b>DeFi Pool:</b>
-/pool - Liquidity pool overview 💰
-/deposit [amt] - Earn yield from agent work 📈
-/pool_stats - Pool analytics 📊
+━━━━━━━━━━━━━━━━━━━━
 
-<b>More:</b>
-/wallet - Your wallet 👛
-/leaderboard - Top earners 🏆
-/help - All commands`;
+<b>Quick start</b> — just ask me anything:
+
+  "What's the price of Bitcoin?"
+  "Check DeFi TVL for Aave"
+  "Estimate gas fees on Ethereum"
+
+Or create your own agent with /create_agent
+
+━━━━━━━━━━━━━━━━━━━━
+
+<b>Commands at a glance</b>
+
+<b>Create</b>
+/create_agent — Build an agent (4 methods)
+/create_bot — Quick template setup
+
+<b>Manage</b>
+/my_agents — Your agents + analytics
+/my_bots — Your template bots
+/browse_store — Agent marketplace
+
+<b>Invest</b>
+/top_investments — Best opportunities
+/my_investments — Your portfolio
+
+<b>DeFi</b>
+/pool — Liquidity pool overview
+/deposit — Earn yield from agent work
+
+<b>Account</b>
+/wallet — Your wallet
+/leaderboard — Top earners
+/help — All commands`;
 
     this.bot.sendMessage(msg.chat.id, welcomeMsg, { parse_mode: 'HTML' });
   }
@@ -487,7 +519,7 @@ Agents are hired automatically via AI orchestrator.
       // If orchestrator can't understand or no suitable bots
       if (!routingPlan || routingPlan.length === 0) {
         this.bot.editMessageText(
-          "🤔 I analyzed your request but couldn't determine which specialist bots to hire.\n\nTry asking:\n• \"What's the Bitcoin price?\"\n• \"Weather in Paris?\"\n• \"Translate hello to Spanish\"\n• \"Calculate 15 * 23\"\n\nOr use /bots to see all available specialists.",
+          "🤔 I analyzed your request but couldn't determine which specialist bots to hire.\n\nTry asking:\n• \"What's the Bitcoin price?\"\n• \"Check DeFi TVL for Aave\"\n• \"Estimate gas fees on Ethereum\"\n• \"Track my portfolio\"\n\nOr use /bots to see all available specialists.",
           { chat_id: chatId, message_id: thinkingMsg.message_id }
         );
         return;
