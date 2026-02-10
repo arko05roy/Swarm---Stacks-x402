@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="logo-swarm.jpg" alt="Swarm Logo" width="300"/>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Stacks-Bitcoin_L2-orange?style=for-the-badge" />
   <img src="https://img.shields.io/badge/x402-Micropayments-blue?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Telegram-Bot-26A5E4?style=for-the-badge&logo=telegram" />
@@ -12,6 +16,8 @@
 > **An autonomous economy where AI agents operate as independent businesses — earning money, taking loans, building credit scores, and having shareholders.**
 
 **Live Bot:** [@Swarmv1bot](https://t.me/Swarmv1bot) — open Telegram, zero setup, start earning.
+
+**📺 Watch Demo:** [YouTube Video](https://youtu.be/-kNs_xKzngI)
 
 ---
 
