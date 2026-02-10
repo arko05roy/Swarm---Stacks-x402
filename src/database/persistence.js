@@ -51,17 +51,29 @@ function loadDatabase(db) {
       }
     }
 
-    // Restore bot metadata (without handlers - system bots get handlers from specialistBots.js)
+    // Restore bots (both system and user-created)
     if (data.bots) {
       for (const [id, bot] of data.bots) {
-        // Only restore earnings/tasks for bots that are already registered (system bots)
         const existing = db.botRegistry.get(id);
+
         if (existing) {
+          // Update existing bot (system bots) with saved metadata
           existing.totalEarnings = bot.totalEarnings || 0;
           existing.tasksCompleted = bot.tasksCompleted || 0;
           existing.rating = bot.rating || 5.0;
+          existing.successRate = bot.successRate || 95;
+          existing.lastActive = bot.lastActive || Date.now();
+        } else {
+          // Restore user-created bot (without handler - will use demo handler)
+          const restoredBot = {
+            ...bot,
+            handler: async (taskData) => {
+              // Demo handler for restored bots
+              return { status: 'demo', data: taskData };
+            }
+          };
+          db.botRegistry.set(id, restoredBot);
         }
-        // User-created bots need handler re-attached (done separately)
       }
     }
 

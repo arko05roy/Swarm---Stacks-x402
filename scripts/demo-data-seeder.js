@@ -1,18 +1,34 @@
 /**
- * Demo Data Seeder
- * 
- * Creates realistic-looking user agents and transaction history
- * for demo/video purposes. Makes the marketplace look vibrant and active.
- * 
- * Run 24 hours before demo recording: node scripts/demo-data-seeder.js
+ * Demo Data Seeder v2.0
+ *
+ * Creates realistic bot marketplace data for compelling demo videos.
+ * Populates the bot database with diverse agents, transaction history,
+ * earnings leaderboard, and active ecosystem metrics.
+ *
+ * Run before recording: node scripts/demo-data-seeder.js
  */
 
-const { registry } = require('../src/core/AgentRegistry');
-const createAgent = require('../src/sdk/createAgent');
-const { initializeCoreAgents } = require('../src/core/initAgents');
+const db = require('../src/database/db');
+const BotRegistry = require('../src/bots/botRegistry');
 
-// Realistic usernames (crypto/DeFi themed)
-const DEMO_USERS = [
+/**
+ * Generate a demo Stacks address (for demo purposes only)
+ */
+function generateDemoStacksAddress(seed) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let address = 'ST';
+  const hash = seed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+
+  for (let i = 0; i < 38; i++) {
+    const index = (hash + i * 7) % chars.length;
+    address += chars[index];
+  }
+
+  return address;
+}
+
+// Realistic creator personas (crypto/DeFi themed)
+const DEMO_CREATORS = [
   'defi_whale',
   'crypto_analyst',
   'yield_farmer',
@@ -22,101 +38,174 @@ const DEMO_USERS = [
   'btc_maxi',
   'defi_researcher',
   'nft_collector',
-  'dao_contributor'
+  'dao_contributor',
+  'protocol_dev',
+  'security_auditor',
+  'data_scientist',
+  'quant_trader',
+  'ecosystem_builder'
 ];
 
-// User agent templates with realistic configurations
-const USER_AGENT_TEMPLATES = [
+// Premium bot templates for vibrant marketplace
+const BOT_TEMPLATES = [
   {
-    name: 'Stacks Protocol Analyzer',
-    description: 'Deep analysis of Stacks blockchain protocols and metrics',
-    capabilities: ['stacks', 'protocol', 'analysis'],
+    name: '🔍 Stacks Protocol Analyzer',
+    description: 'Deep analysis of Stacks blockchain protocols, metrics, and activity',
+    capabilities: ['stacks', 'protocol', 'analysis', 'metrics'],
     pricePerCall: 0.0075,
     creator: 'blockchain_dev',
-    callsRange: [50, 200],
-    rating: 4.7
+    callsRange: [500, 2000],
+    rating: 4.8,
+    earningsMultiplier: 1.2
   },
   {
-    name: 'NFT Floor Tracker',
-    description: 'Track NFT collection floor prices and volume',
-    capabilities: ['nft', 'floor-price', 'collections'],
+    name: '🖼️ NFT Floor Price Oracle',
+    description: 'Track NFT collection floor prices, volume, and market trends',
+    capabilities: ['nft', 'floor-price', 'collections', 'marketplace'],
     pricePerCall: 0.006,
     creator: 'nft_collector',
-    callsRange: [120, 450],
-    rating: 4.9
+    callsRange: [1200, 4500],
+    rating: 4.9,
+    earningsMultiplier: 2.5
   },
   {
-    name: 'DAO Proposal Monitor',
-    description: 'Monitor and summarize DAO governance proposals',
-    capabilities: ['dao', 'governance', 'proposals'],
+    name: '🗳️ DAO Governance Monitor',
+    description: 'Monitor and summarize DAO governance proposals across chains',
+    capabilities: ['dao', 'governance', 'proposals', 'voting'],
     pricePerCall: 0.008,
     creator: 'dao_contributor',
-    callsRange: [30, 150],
-    rating: 4.6
+    callsRange: [300, 1500],
+    rating: 4.7,
+    earningsMultiplier: 1.0
   },
   {
-    name: 'Liquidity Pool Finder',
-    description: 'Find best liquidity pools across DEXs',
-    capabilities: ['dex', 'liquidity', 'pools'],
+    name: '💧 Cross-DEX Liquidity Finder',
+    description: 'Find optimal liquidity pools across multiple DEXs',
+    capabilities: ['dex', 'liquidity', 'pools', 'yield'],
     pricePerCall: 0.005,
     creator: 'yield_farmer',
-    callsRange: [200, 600],
-    rating: 5.0
+    callsRange: [2000, 6000],
+    rating: 5.0,
+    earningsMultiplier: 3.0
   },
   {
-    name: 'Token Launch Detector',
-    description: 'Detect new token launches and rug pull risks',
-    capabilities: ['token', 'launch', 'security'],
+    name: '🚀 Token Launch Detector',
+    description: 'Detect new token launches, rug pull risks, and contract analysis',
+    capabilities: ['token', 'launch', 'security', 'analysis'],
     pricePerCall: 0.009,
     creator: 'crypto_analyst',
-    callsRange: [80, 250],
-    rating: 4.8
+    callsRange: [800, 2500],
+    rating: 4.8,
+    earningsMultiplier: 1.8
   },
   {
-    name: 'Whale Wallet Tracker',
-    description: 'Track large wallet movements and transactions',
-    capabilities: ['whale', 'wallet', 'tracking'],
+    name: '🐋 Whale Wallet Tracker',
+    description: 'Track large wallet movements and on-chain whale activity',
+    capabilities: ['whale', 'wallet', 'tracking', 'alerts'],
     pricePerCall: 0.007,
     creator: 'defi_whale',
-    callsRange: [150, 400],
-    rating: 4.9
+    callsRange: [1500, 4000],
+    rating: 4.9,
+    earningsMultiplier: 2.2
   },
   {
-    name: 'Smart Contract Auditor',
-    description: 'Basic security checks for Clarity smart contracts',
-    capabilities: ['security', 'audit', 'clarity'],
+    name: '🛡️ Smart Contract Auditor',
+    description: 'Automated security checks for Clarity smart contracts',
+    capabilities: ['security', 'audit', 'clarity', 'contracts'],
     pricePerCall: 0.015,
-    creator: 'stacks_builder',
-    callsRange: [20, 80],
-    rating: 5.0
+    creator: 'security_auditor',
+    callsRange: [200, 800],
+    rating: 5.0,
+    earningsMultiplier: 1.5
   },
   {
-    name: 'DeFi News Aggregator',
-    description: 'Aggregate DeFi news from multiple sources',
-    capabilities: ['news', 'defi', 'aggregator'],
+    name: '📰 DeFi News Aggregator',
+    description: 'Real-time DeFi news from Twitter, Discord, and news sources',
+    capabilities: ['news', 'defi', 'aggregator', 'alerts'],
     pricePerCall: 0.003,
     creator: 'defi_researcher',
-    callsRange: [300, 800],
-    rating: 4.5
+    callsRange: [3000, 8000],
+    rating: 4.6,
+    earningsMultiplier: 2.0
   },
   {
-    name: 'Impermanent Loss Calculator',
-    description: 'Calculate impermanent loss for LP positions',
-    capabilities: ['calculator', 'il', 'lp'],
+    name: '📊 Impermanent Loss Calculator',
+    description: 'Calculate IL risk for LP positions with historical simulations',
+    capabilities: ['calculator', 'il', 'lp', 'risk'],
     pricePerCall: 0.004,
-    creator: 'yield_farmer',
-    callsRange: [100, 350],
-    rating: 4.7
+    creator: 'quant_trader',
+    callsRange: [1000, 3500],
+    rating: 4.8,
+    earningsMultiplier: 1.3
   },
   {
-    name: 'Bitcoin Correlation Tracker',
-    description: 'Track altcoin correlation with Bitcoin',
-    capabilities: ['bitcoin', 'correlation', 'analysis'],
+    name: '₿ Bitcoin Correlation Tracker',
+    description: 'Track altcoin correlation with Bitcoin price movements',
+    capabilities: ['bitcoin', 'correlation', 'analysis', 'trading'],
     pricePerCall: 0.006,
     creator: 'btc_maxi',
-    callsRange: [60, 200],
-    rating: 4.8
+    callsRange: [600, 2000],
+    rating: 4.7,
+    earningsMultiplier: 1.1
+  },
+  {
+    name: '⚡ Gas Optimization Analyzer',
+    description: 'Analyze and suggest gas optimizations for smart contracts',
+    capabilities: ['gas', 'optimization', 'efficiency', 'analysis'],
+    pricePerCall: 0.012,
+    creator: 'protocol_dev',
+    callsRange: [150, 600],
+    rating: 4.9,
+    earningsMultiplier: 1.4
+  },
+  {
+    name: '🌐 Multi-Chain Bridge Monitor',
+    description: 'Monitor bridge activity, fees, and security across chains',
+    capabilities: ['bridge', 'cross-chain', 'monitoring', 'security'],
+    pricePerCall: 0.008,
+    creator: 'ecosystem_builder',
+    callsRange: [400, 1800],
+    rating: 4.8,
+    earningsMultiplier: 1.2
+  },
+  {
+    name: '📈 Yield Farming APY Tracker',
+    description: 'Track real-time APY across DeFi protocols with risk scores',
+    capabilities: ['yield', 'farming', 'apy', 'tracking'],
+    pricePerCall: 0.0055,
+    creator: 'yield_farmer',
+    callsRange: [2500, 7000],
+    rating: 5.0,
+    earningsMultiplier: 3.5
+  },
+  {
+    name: '🔐 Multi-Sig Wallet Manager',
+    description: 'Manage and monitor multi-signature wallet operations',
+    capabilities: ['multisig', 'wallet', 'security', 'management'],
+    pricePerCall: 0.01,
+    creator: 'stacks_builder',
+    callsRange: [250, 1000],
+    rating: 4.9,
+    earningsMultiplier: 1.0
+  },
+  {
+    name: '📉 Portfolio Risk Analyzer',
+    description: 'Analyze portfolio risk with VaR, volatility, and correlation metrics',
+    capabilities: ['portfolio', 'risk', 'analysis', 'metrics'],
+    pricePerCall: 0.011,
+    creator: 'data_scientist',
+    callsRange: [350, 1400],
+    rating: 4.8,
+    earningsMultiplier: 1.3
   }
+];
+
+// Core system bots (should already exist)
+const CORE_BOTS = [
+  { id: 'price-oracle-bot', callsRange: [10000, 15000], rating: 5.0 },
+  { id: 'weather-bot', callsRange: [3000, 6000], rating: 4.7 },
+  { id: 'translation-bot', callsRange: [5000, 9000], rating: 4.8 },
+  { id: 'calculator-bot', callsRange: [8000, 12000], rating: 4.9 }
 ];
 
 /**
@@ -136,146 +225,232 @@ function randomTimestampLastNDays(days) {
 }
 
 /**
- * Create a user-created agent with realistic metadata
+ * Generate realistic transaction history for a bot
  */
-function createUserAgent(template) {
-  const calls = randomInRange(template.callsRange[0], template.callsRange[1]);
-  const successRate = randomInRange(92, 100);
-  const avgLatency = randomInRange(800, 3000);
-  
-  const agent = createAgent.custom({
-    name: template.name,
-    description: template.description,
-    author: template.creator,
-    capabilities: template.capabilities,
-    pricePerCall: template.pricePerCall,
-    
-    execute: async (input) => {
-      // Dummy function - won't be called in demo
-      return { status: 'demo agent', input };
-    }
-  });
+function generateTransactionHistory(botId, totalCalls, pricePerCall) {
+  const transactions = [];
+  const now = Date.now();
 
-  // Simulate usage history
-  agent.manifest.metadata.calls = calls;
-  agent.manifest.metadata.totalEarnings = calls * template.pricePerCall;
-  agent.manifest.metadata.successRate = successRate;
-  agent.manifest.metadata.avgLatency = avgLatency;
-  agent.manifest.metadata.reputation = Math.min(100, template.rating * 20);
-  agent.manifest.metadata.createdAt = randomTimestampLastNDays(30);
-  agent.manifest.metadata.updatedAt = randomTimestampLastNDays(7);
+  // Spread transactions over last 60 days with realistic patterns
+  for (let i = 0; i < Math.min(totalCalls, 50); i++) {
+    const daysAgo = Math.floor(Math.pow(Math.random(), 2) * 60); // More recent = more likely
+    const timestamp = now - (daysAgo * 24 * 60 * 60 * 1000);
 
-  return agent;
+    transactions.push({
+      taskId: `task-${Date.now()}-${randomInRange(1000, 9999)}`,
+      botId,
+      amount: pricePerCall,
+      status: Math.random() > 0.05 ? 'completed' : 'failed', // 95% success rate
+      timestamp
+    });
+  }
+
+  return transactions;
 }
 
 /**
- * Seed demo data
+ * Create a user bot with realistic metadata
+ */
+function createUserBot(template) {
+  const botId = `${template.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${randomInRange(1000, 9999)}`;
+  const calls = randomInRange(template.callsRange[0], template.callsRange[1]);
+  const totalEarnings = calls * template.pricePerCall * template.earningsMultiplier;
+  const successRate = randomInRange(92, 100);
+
+  const bot = {
+    id: botId,
+    name: template.name,
+    description: template.description,
+    capabilities: template.capabilities,
+    pricePerCall: template.pricePerCall,
+    walletAddress: generateDemoStacksAddress(template.creator),
+    creator: template.creator,
+
+    // Metadata for marketplace display
+    totalEarnings: parseFloat(totalEarnings.toFixed(4)),
+    tasksCompleted: calls,
+    rating: template.rating,
+    successRate,
+    registeredAt: randomTimestampLastNDays(90),
+    lastActive: randomTimestampLastNDays(7),
+
+    // Demo handler (won't be called in video)
+    handler: async (taskData) => {
+      return { status: 'demo', data: taskData };
+    }
+  };
+
+  return bot;
+}
+
+/**
+ * Enhance core system bots with realistic activity
+ */
+function enhanceCoreBot(botConfig) {
+  const bot = db.getBot(botConfig.id);
+  if (!bot) return null;
+
+  const calls = randomInRange(botConfig.callsRange[0], botConfig.callsRange[1]);
+  const totalEarnings = calls * bot.pricePerCall;
+
+  return {
+    ...bot,
+    totalEarnings: parseFloat(totalEarnings.toFixed(4)),
+    tasksCompleted: calls,
+    rating: botConfig.rating,
+    successRate: randomInRange(94, 100),
+    lastActive: randomTimestampLastNDays(2)
+  };
+}
+
+/**
+ * Main seeder function
  */
 async function seedDemoData() {
-  console.log('🌱 Seeding demo data for marketplace...\n');
+  console.log('🌱 Seeding Swarm Bot Marketplace with demo data...\n');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-  // Initialize core agents first
-  console.log('📦 Loading core DeFi agents...');
-  initializeCoreAgents();
+  // Step 1: Enhance core system bots
+  console.log('📦 Enhancing core system bots with activity...');
+  let coreBotsEnhanced = 0;
 
-  // Add realistic usage to core agents
-  const coreAgents = [
-    { id: 'crypto-price-core', calls: randomInRange(1000, 1500), rating: 4.9 },
-    { id: 'defi-tvl-core', calls: randomInRange(700, 1100), rating: 4.8 },
-    { id: 'token-analytics-core', calls: randomInRange(100, 300), rating: 4.7 },
-    { id: 'yield-optimizer-core', calls: randomInRange(500, 900), rating: 5.0 },
-    { id: 'blockchain-explorer-core', calls: randomInRange(60, 150), rating: 4.9 },
-    { id: 'fee-estimator-core', calls: randomInRange(40, 120), rating: 5.0 },
-    { id: 'portfolio-tracker-core', calls: randomInRange(180, 400), rating: 4.8 },
-    { id: 'contract-deployer-core', calls: randomInRange(15, 50), rating: 4.6 }
-  ];
+  for (const coreConfig of CORE_BOTS) {
+    const enhanced = enhanceCoreBot(coreConfig);
+    if (enhanced) {
+      // Update in database
+      db.botRegistry.set(enhanced.id, enhanced);
 
-  for (const coreAgent of coreAgents) {
-    const agent = registry.get(coreAgent.id);
-    if (agent) {
-      agent.manifest.metadata.calls = coreAgent.calls;
-      agent.manifest.metadata.totalEarnings = coreAgent.calls * agent.manifest.pricing.pricePerCall;
-      agent.manifest.metadata.successRate = randomInRange(94, 100);
-      agent.manifest.metadata.avgLatency = randomInRange(600, 2000);
-      agent.manifest.metadata.reputation = Math.min(100, coreAgent.rating * 20);
-      agent.manifest.metadata.createdAt = randomTimestampLastNDays(60);
-      agent.manifest.metadata.updatedAt = randomTimestampLastNDays(3);
-      
-      console.log(`  ✓ ${agent.manifest.name}: ${coreAgent.calls} calls, ${coreAgent.rating}★`);
+      // Add to leaderboard
+      db.leaderboard.set(enhanced.id, enhanced.totalEarnings);
+
+      console.log(`  ✓ ${enhanced.name}: ${enhanced.tasksCompleted.toLocaleString()} calls, ${enhanced.totalEarnings.toFixed(3)} STX earned, ${enhanced.rating}★`);
+      coreBotsEnhanced++;
     }
   }
 
-  console.log('\n👥 Creating user-generated agents...');
+  console.log(`\n✅ Enhanced ${coreBotsEnhanced} core bots\n`);
 
-  // Create user agents
-  let createdCount = 0;
-  for (const template of USER_AGENT_TEMPLATES) {
+  // Step 2: Create vibrant user-generated bots
+  console.log('👥 Creating user-generated specialist bots...\n');
+
+  const createdBots = [];
+
+  for (const template of BOT_TEMPLATES) {
     try {
-      // Add tiny delay to ensure unique timestamps for agent IDs
-      await new Promise(resolve => setTimeout(resolve, 2));
-      
-      const agent = createUserAgent(template);
-      registry.register(agent, template.creator);
-      
-      const calls = agent.manifest.metadata.calls;
-      const earnings = agent.manifest.metadata.totalEarnings.toFixed(3);
-      const rating = (agent.manifest.metadata.reputation / 20).toFixed(1);
-      
-      console.log(`  ✓ ${agent.manifest.name}`);
-      console.log(`    by @${template.creator} • ${calls} calls • ${earnings} STX earned • ${rating}★`);
-      
-      createdCount++;
+      // Small delay for unique timestamps
+      await new Promise(resolve => setTimeout(resolve, 5));
+
+      const bot = createUserBot(template);
+
+      // Register in database
+      db.registerBot(bot.id, bot);
+
+      // Add to leaderboard
+      db.leaderboard.set(bot.id, bot.totalEarnings);
+
+      // Generate transaction history
+      const transactions = generateTransactionHistory(
+        bot.id,
+        bot.tasksCompleted,
+        bot.pricePerCall
+      );
+
+      // Store transactions (simplified for demo)
+      transactions.forEach(tx => {
+        db.taskHistory.set(tx.taskId, tx);
+      });
+
+      createdBots.push(bot);
+
+      const earningsFormatted = bot.totalEarnings.toFixed(3);
+      const callsFormatted = bot.tasksCompleted.toLocaleString();
+
+      console.log(`  ✓ ${bot.name}`);
+      console.log(`    by @${bot.creator}`);
+      console.log(`    ${callsFormatted} calls • ${earningsFormatted} STX earned • ${bot.rating}★`);
+      console.log(`    Price: ${bot.pricePerCall} STX/call • Success: ${bot.successRate}%\n`);
+
     } catch (error) {
-      console.log(`  ✗ Failed to create ${template.name}: ${error.message}`);
+      console.log(`  ✗ Failed to create ${template.name}: ${error.message}\n`);
     }
   }
 
-  console.log('\n📊 Demo data summary:');
-  const stats = registry.getStats();
-  console.log(`  • Total agents: ${stats.totalAgents}`);
-  console.log(`  • Core agents: 8`);
-  console.log(`  • User agents: ${createdCount}`);
-  console.log(`  • Total capabilities: ${stats.capabilities.length}`);
+  // Step 3: Save everything to disk
+  console.log('💾 Persisting data to disk...');
+  db.saveNow();
+  console.log('✅ Data saved to data/db.json\n');
 
-  // Calculate total volume
-  const allAgents = registry.list();
-  const totalCalls = allAgents.reduce((sum, agent) => sum + (agent.manifest?.metadata?.calls || 0), 0);
-  const totalVolume = allAgents.reduce((sum, agent) => sum + (agent.manifest?.metadata?.totalEarnings || 0), 0);
+  // Step 4: Generate impressive statistics
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  console.log('📊 MARKETPLACE STATISTICS\n');
 
-  console.log(`  • Total calls (simulated): ${totalCalls.toLocaleString()}`);
-  console.log(`  • Total volume: ${totalVolume.toFixed(2)} STX`);
+  const allBots = db.getAllBots();
+  const totalBots = allBots.length;
+  const totalCalls = allBots.reduce((sum, bot) => sum + (bot.tasksCompleted || 0), 0);
+  const totalVolume = allBots.reduce((sum, bot) => sum + (bot.totalEarnings || 0), 0);
+  const avgRating = allBots.reduce((sum, bot) => sum + (bot.rating || 0), 0) / totalBots;
+  const uniqueCapabilities = new Set(allBots.flatMap(bot => bot.capabilities || []));
 
-  console.log('\n✅ Demo data seeded successfully!');
-  console.log('\n💡 Tips for demo:');
-  console.log('   1. Use /browse_store to show vibrant marketplace');
-  console.log('   2. Agent IDs look organic (not sequential)');
-  console.log('   3. Call counts and ratings are realistic');
-  console.log('   4. Created timestamps spread over 30 days');
-  console.log('   5. Ready for video recording!\n');
+  console.log(`  🤖 Total Bots: ${totalBots}`);
+  console.log(`  📞 Total Calls: ${totalCalls.toLocaleString()}`);
+  console.log(`  💰 Total Volume: ${totalVolume.toFixed(2)} STX`);
+  console.log(`  ⭐ Average Rating: ${avgRating.toFixed(2)}/5.0`);
+  console.log(`  🎯 Unique Capabilities: ${uniqueCapabilities.size}`);
+  console.log(`  👥 Active Creators: ${new Set(allBots.map(b => b.creator).filter(Boolean)).size}`);
 
-  // Show top agents
-  console.log('🔥 Top agents by earnings:');
-  const topEarning = registry.getTopEarning(5);
-  topEarning.forEach((agent, i) => {
-    const earnings = agent.metadata?.totalEarnings || 0;
-    console.log(`   ${i + 1}. ${agent.name} - ${earnings.toFixed(3)} STX`);
+  // Step 5: Show leaderboard
+  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  console.log('🏆 TOP 10 EARNING BOTS\n');
+
+  const leaderboard = db.getLeaderboard(10);
+  leaderboard.forEach((entry, i) => {
+    const bot = entry.bot;
+    const rank = ['🥇', '🥈', '🥉'][i] || `${i + 1}.`;
+    console.log(`  ${rank} ${bot.name}`);
+    console.log(`     ${entry.earnings.toFixed(3)} STX • ${bot.tasksCompleted?.toLocaleString() || 0} calls • ${bot.rating}★\n`);
   });
 
-  console.log('\n🆕 Newest agents:');
-  const newest = registry.getNewest(5);
-  newest.forEach((agent, i) => {
-    const createdAt = agent.metadata?.createdAt || Date.now();
-    const daysAgo = Math.floor((Date.now() - createdAt) / (1000 * 60 * 60 * 24));
-    console.log(`   ${i + 1}. ${agent.name} - ${daysAgo} days ago`);
+  // Step 6: Show newest bots
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  console.log('🆕 NEWEST BOTS (Last 5)\n');
+
+  const newest = allBots
+    .sort((a, b) => (b.registeredAt || 0) - (a.registeredAt || 0))
+    .slice(0, 5);
+
+  newest.forEach((bot, i) => {
+    const daysAgo = Math.floor((Date.now() - (bot.registeredAt || Date.now())) / (1000 * 60 * 60 * 24));
+    console.log(`  ${i + 1}. ${bot.name}`);
+    console.log(`     Registered ${daysAgo} days ago by @${bot.creator || 'system'}\n`);
   });
+
+  // Step 7: Show demo tips
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  console.log('🎬 DEMO RECORDING TIPS\n');
+  console.log('  1. Run /browse_store to show vibrant marketplace');
+  console.log('  2. Run /leaderboard to show top earning bots');
+  console.log('  3. Run /hire <capability> to demonstrate bot hiring');
+  console.log('  4. Run /my_bots to show user portfolio');
+  console.log('  5. Bot IDs look organic (not sequential)');
+  console.log('  6. Realistic earnings and call counts');
+  console.log('  7. Transaction history spread over 60 days');
+  console.log('  8. Success rates between 92-100%');
+  console.log('\n🎥 Ready for video recording! Good luck!\n');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 }
 
 // Run seeder
 if (require.main === module) {
-  seedDemoData().catch(error => {
-    console.error('❌ Error seeding demo data:', error);
-    process.exit(1);
-  });
+  seedDemoData()
+    .then(() => {
+      console.log('✅ Demo data seeding completed successfully!\n');
+      process.exit(0);
+    })
+    .catch(error => {
+      console.error('❌ Error seeding demo data:', error);
+      console.error(error.stack);
+      process.exit(1);
+    });
 }
 
 module.exports = { seedDemoData };

@@ -20,6 +20,10 @@ class MainBot {
     this.botCreation = new BotCreationService(this.walletService);
     this.rateLimiter = new RateLimiter();
 
+    // Load persisted bot database (demo data, earnings, etc.)
+    db.loadFromDisk();
+    Logger.info('Bot database loaded from disk');
+
     // Initialize modular agent framework (Strategic Pivot #2)
     initializeCoreAgents();
     this.enhanced = new EnhancedBotCommands(this.bot, this.walletService);
