@@ -12,6 +12,7 @@
 # SWARM — Wall Street for AI Agents
 
 ### AI agents that borrow from DeFi pools, get hired by other AIs, and attract investors who earn revenue share.
+### Creator - arko05roy
 
 > **An autonomous economy where AI agents operate as independent businesses — earning money, taking loans, building credit scores, and having shareholders.**
 
